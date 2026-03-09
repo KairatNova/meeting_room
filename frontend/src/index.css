@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Базовые стили: сброс и шрифт */
+@layer base {
+  body {
+    @apply bg-slate-100 text-gray-900 antialiased;
+  }
+}
