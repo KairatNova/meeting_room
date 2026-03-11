@@ -1,9 +1,24 @@
 """
 Схемы для комнаты: создание, обновление, ответ.
 """
+from __future__ import annotations
+
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from app.models.room import Room
+
+
+class RoomPhotoResponse(BaseModel):
+    """Один элемент в списке фотографий комнаты."""
+
+    id: int
+    url: str  # полный URL для отображения (например /uploads/room_photos/...)
+
+    model_config = {"from_attributes": False}
 
 
 class RoomCreate(BaseModel):
@@ -33,5 +48,24 @@ class RoomResponse(BaseModel):
     capacity: int
     amenities: str | None
     created_at: datetime
+    photos: list[RoomPhotoResponse] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
+
+
+def room_to_response(room: "Room") -> RoomResponse:
+    """Собрать RoomResponse из ORM-модели с URL для фотографий."""
+    r = room
+    photos = [
+        RoomPhotoResponse(id=p.id, url="/uploads/" + p.path)
+        for p in sorted(r.photos, key=lambda x: x.id)
+    ]
+    return RoomResponse(
+        id=r.id,
+        name=r.name,
+        description=r.description,
+        capacity=r.capacity,
+        amenities=r.amenities,
+        created_at=r.created_at,
+        photos=photos,
+    )

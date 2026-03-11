@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { roomsApi } from "../api/rooms";
 import { ApiError } from "../api/client";
 import type { Room, RoomCreate } from "../types/api";
 
 /**
- * Админ-панель: список комнат, добавление, редактирование, удаление.
+ * Админ-панель: список комнат, добавление, редактирование, удаление, фотографии.
  */
 export function AdminPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -15,6 +15,10 @@ export function AdminPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [photosToAdd, setPhotosToAdd] = useState<File[]>([]);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadRooms = () => {
     setLoading(true);
@@ -29,10 +33,14 @@ export function AdminPage() {
     loadRooms();
   }, []);
 
+  const editingRoom = editingId !== null ? rooms.find((r) => r.id === editingId) : null;
+
   const handleCreate = () => {
     setEditingId(null);
     setForm({ name: "", description: "", capacity: 2, amenities: "" });
+    setPhotosToAdd([]);
     setSaveError(null);
+    setPhotoError(null);
   };
 
   const handleEdit = (room: Room) => {
@@ -43,12 +51,15 @@ export function AdminPage() {
       capacity: room.capacity,
       amenities: room.amenities ?? "",
     });
+    setPhotosToAdd([]);
     setSaveError(null);
+    setPhotoError(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaveError(null);
+    setPhotoError(null);
     setSaving(true);
     const name = form.name.trim();
     const description = (form.description ?? "").trim() || null;
@@ -57,16 +68,77 @@ export function AdminPage() {
     try {
       if (editingId !== null) {
         await roomsApi.update(editingId, { name, description, capacity, amenities });
+        if (photosToAdd.length > 0) {
+          setUploadingPhotos(true);
+          await roomsApi.uploadPhotos(editingId, photosToAdd);
+          setPhotosToAdd([]);
+          setUploadingPhotos(false);
+        }
         setEditingId(null);
       } else {
-        await roomsApi.create({ name, description, capacity, amenities });
+        const room = await roomsApi.create({ name, description, capacity, amenities });
+        if (photosToAdd.length > 0) {
+          setUploadingPhotos(true);
+          await roomsApi.uploadPhotos(room.id, photosToAdd);
+          setPhotosToAdd([]);
+          setUploadingPhotos(false);
+        }
       }
       setForm({ name: "", description: "", capacity: 2, amenities: "" });
       loadRooms();
     } catch (err) {
-      setSaveError(err instanceof ApiError ? err.message : "Ошибка сохранения");
+      if (err instanceof ApiError && err.status === 403) {
+        setSaveError("Добавление и редактирование комнат доступно только администратору.");
+      } else {
+        setSaveError(err instanceof ApiError ? err.message : "Ошибка сохранения");
+      }
     } finally {
       setSaving(false);
+      setUploadingPhotos(false);
+    }
+  };
+
+  const handleAddPhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files?.length) return;
+    setPhotoError(null);
+    const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    if (list.length !== files.length) {
+      setPhotoError("Добавлены только файлы изображений (jpg, png, gif, webp).");
+    }
+    setPhotosToAdd((prev) => [...prev, ...list]);
+    e.target.value = "";
+  };
+
+  const removePhotoToAdd = (index: number) => {
+    setPhotosToAdd((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUploadMoreInEdit = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files?.length || editingId === null) return;
+    setPhotoError(null);
+    const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    if (list.length === 0) return;
+    try {
+      setUploadingPhotos(true);
+      await roomsApi.uploadPhotos(editingId, list);
+      loadRooms();
+    } catch (err) {
+      setPhotoError(err instanceof ApiError ? err.message : "Ошибка загрузки фото");
+    } finally {
+      setUploadingPhotos(false);
+    }
+    e.target.value = "";
+  };
+
+  const handleDeletePhoto = async (roomId: number, photoId: number) => {
+    setPhotoError(null);
+    try {
+      await roomsApi.deletePhoto(roomId, photoId);
+      loadRooms();
+    } catch (err) {
+      setPhotoError(err instanceof ApiError ? err.message : "Ошибка удаления фото");
     }
   };
 
@@ -141,13 +213,90 @@ export function AdminPage() {
               className="w-full border border-gray-300 rounded px-3 py-2"
             />
           </div>
+
+          {/* Фотографии */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Фотографии</label>
+            {photoError && (
+              <div className="mb-2 p-2 bg-red-50 text-red-700 rounded text-sm">{photoError}</div>
+            )}
+            {editingId !== null && (editingRoom?.photos?.length ?? 0) > 0 && (
+              <div className="mb-3 flex flex-wrap gap-2">
+                {editingRoom!.photos!.map((p) => (
+                  <div key={p.id} className="relative group">
+                    <img
+                      src={p.url}
+                      alt=""
+                      className="w-20 h-20 object-cover rounded border border-gray-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleDeletePhoto(editingId, p.id)}
+                      disabled={uploadingPhotos}
+                      className="absolute inset-0 flex items-center justify-center bg-black/50 rounded opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-medium disabled:opacity-50"
+                    >
+                      Удалить
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {editingId !== null && (
+              <div className="mb-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  multiple
+                  onChange={handleUploadMoreInEdit}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingPhotos}
+                  className="text-sm text-indigo-600 hover:underline disabled:opacity-50"
+                >
+                  {uploadingPhotos ? "Загрузка…" : "Добавить ещё фото"}
+                </button>
+              </div>
+            )}
+            {(editingId === null || photosToAdd.length > 0) && (
+              <div className="space-y-2">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  multiple
+                  onChange={handleAddPhotos}
+                  className="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:bg-indigo-50 file:text-indigo-700"
+                />
+                {photosToAdd.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {photosToAdd.map((file, i) => (
+                      <div key={i} className="flex items-center gap-1 bg-gray-100 rounded px-2 py-1 text-sm">
+                        <span className="max-w-[120px] truncate">{file.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => removePhotoToAdd(i)}
+                          className="text-red-600 hover:underline"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="flex gap-2">
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || uploadingPhotos}
               className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 disabled:opacity-50"
             >
-              {saving ? "Сохранение…" : editingId !== null ? "Сохранить" : "Добавить"}
+              {saving ? "Сохранение…" : uploadingPhotos ? "Загрузка фото…" : editingId !== null ? "Сохранить" : "Добавить"}
             </button>
             {editingId !== null && (
               <button

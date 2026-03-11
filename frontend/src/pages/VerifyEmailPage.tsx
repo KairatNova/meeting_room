@@ -30,11 +30,12 @@ export function VerifyEmailPage() {
     }
     setLoading(true);
     try {
-      await authApi.verifyEmail(email.trim(), trimmedCode);
-      navigate("/login", {
-        replace: true,
-        state: { message: "Email подтверждён. Войдите в систему." },
-      });
+      const res = await authApi.verifyEmail(email.trim(), trimmedCode);
+      // Сохраняем токен и сразу считаем пользователя залогиненным
+      localStorage.setItem("access_token", res.access_token);
+      // Проще всего перезагрузить приложение, AuthProvider подтянет пользователя по токену
+      navigate("/", { replace: true });
+      window.location.reload();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Ошибка проверки кода");
     } finally {

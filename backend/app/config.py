@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     # Время жизни кода подтверждения (минуты)
     email_verification_code_expire_minutes: int = 10
 
+    # --- Загрузка файлов (фото комнат) ---
+    upload_dir: str = "uploads"  # папка относительно корня проекта (backend/)
+
 
 @lru_cache
 def get_settings() -> Settings:

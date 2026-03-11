@@ -38,15 +38,40 @@ export interface RegisterResponse {
   email: string;
 }
 
-/** Запрос подтверждения email. */
-export interface VerifyEmailRequest {
+/** Короткая информация о пользователе в ответах авторизации. */
+export interface AuthUser {
+  id: number;
   email: string;
-  code: string;
+  name: string;
 }
 
-/** Ответ после успешного подтверждения email. */
-export interface VerifyEmailResponse {
+/** Ответ после успешного подтверждения email: сразу логин. */
+export interface VerifyEmailLoginResponse {
+  access_token: string;
+  token_type: string;
+  user: AuthUser;
+}
+
+/** Универсальный ответ с сообщением. */
+export interface MessageResponse {
   message: string;
+}
+
+/** Запрос на сброс пароля (забыли пароль). */
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+/** Запрос смены пароля по коду. */
+export interface ResetPasswordRequest {
+  email: string;
+  reset_code: string;
+  new_password: string;
+}
+
+export interface RoomPhoto {
+  id: number;
+  url: string;
 }
 
 export interface Room {
@@ -56,6 +81,7 @@ export interface Room {
   capacity: number;
   amenities: string | null;
   created_at: string;
+  photos?: RoomPhoto[];
 }
 
 export interface RoomCreate {

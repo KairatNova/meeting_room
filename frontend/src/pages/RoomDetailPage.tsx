@@ -141,20 +141,34 @@ export function RoomDetailPage() {
       <section>
         <h2 className="text-lg font-semibold mb-2">Доступность</h2>
         <div className="bg-white rounded-lg border border-gray-200 p-2 overflow-x-auto">
-          <FullCalendar
-            key={roomId}
-            plugins={[dayGridPlugin, timeGridPlugin]}
-            initialView="timeGridWeek"
-            headerToolbar={{ left: "prev,next today", center: "title", right: "dayGridMonth,timeGridWeek" }}
-            events={calendarEvents}
-            datesSet={handleDatesSet}
-            height="auto"
-            locale="ru"
-            slotMinTime="06:00:00"
-            slotMaxTime="23:00:00"
-            allDaySlot={false}
-          />
-        </div>
+  <FullCalendar
+    key={roomId}
+    plugins={[dayGridPlugin, timeGridPlugin]}
+    initialView="timeGridWeek"
+    headerToolbar={{
+      left: "prev,next",
+      center: "title",
+      right: "timeGridDay,timeGridWeek,dayGridMonth",
+    }}
+    buttonText={{
+      today: "Сегодня",
+      month: "Месяц",
+      week: "Неделя",
+      day: "День",
+    }}
+    locale="ru"
+    events={calendarEvents}
+    datesSet={handleDatesSet}
+    contentHeight={520}
+    expandRows={false}
+    slotMinTime="08:00:00"
+    slotMaxTime="21:00:00"
+    slotDuration="01:00:00"
+    slotLabelInterval="01:00:00"
+    dayMaxEventRows={true}
+    allDaySlot={false}
+  />
+</div>
       </section>
 
       {user && (

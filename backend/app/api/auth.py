@@ -15,6 +15,7 @@ from app.core.dependencies import DbSession, CurrentUser
 from app.core.security import verify_password, hash_password, create_access_token
 from app.models.user import User
 from app.models.email_verification import EmailVerificationCode
+from app.models.password_reset import PasswordResetCode
 from app.schemas.user import (
     UserCreate,
     UserLogin,
@@ -23,9 +24,12 @@ from app.schemas.user import (
     Token,
     RegisterResponse,
     VerifyEmailRequest,
-    VerifyEmailResponse,
+    VerifyEmailLoginResponse,
+    AuthUser,
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
 )
-from app.services.email import send_verification_email
+from app.services.email import send_verification_email, send_password_reset_email
 
 router = APIRouter()
 settings = get_settings()
@@ -36,6 +40,10 @@ def _generate_code(length: int = 6) -> str:
     return "".join(random.choices(string.digits, k=length))
 
 
+def _normalize_email(email: str) -> str:
+    return email.strip().lower()
+
+
 @router.post("/auth/register", response_model=RegisterResponse)
 def register(data: UserCreate, db: DbSession) -> RegisterResponse:
     """
@@ -43,7 +51,7 @@ def register(data: UserCreate, db: DbSession) -> RegisterResponse:
     сохраняется в БД с временем жизни (по умолчанию 10 мин), код отправляется на email.
     Пароль хранится в виде хэша. Email нормализуется (lowercase) для поиска и хранения.
     """
-    email_normalized = data.email.strip().lower()
+    email_normalized = _normalize_email(data.email)
     stmt = select(User).where(User.email == email_normalized)
     existing = db.execute(stmt).scalar_one_or_none()
     if existing:
@@ -111,13 +119,13 @@ def register(data: UserCreate, db: DbSession) -> RegisterResponse:
     )
 
 
-@router.post("/auth/verify-email", response_model=VerifyEmailResponse)
-def verify_email(data: VerifyEmailRequest, db: DbSession) -> VerifyEmailResponse:
+@router.post("/auth/verify-email", response_model=VerifyEmailLoginResponse)
+def verify_email(data: VerifyEmailRequest, db: DbSession) -> VerifyEmailLoginResponse:
     """
     Подтверждение email: проверка кода. Если код верный и не истёк — пользователь
     активируется (is_verified=True), код удаляется из БД. После этого возможен вход.
     """
-    email_normalized = data.email.strip().lower()
+    email_normalized = _normalize_email(data.email)
     stmt = (
         select(User)
         .where(User.email == email_normalized)
@@ -148,7 +156,7 @@ def verify_email(data: VerifyEmailRequest, db: DbSession) -> VerifyEmailResponse
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Срок действия кода истёк. Зарегистрируйтесь снова, чтобы получить новый код.",
         )
-    if verification.code != data.code.strip():
+    if verification.code != data.verification_code.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Неверный код подтверждения.",
@@ -157,7 +165,16 @@ def verify_email(data: VerifyEmailRequest, db: DbSession) -> VerifyEmailResponse
     user.is_verified = True
     db.delete(verification)
     db.commit()
-    return VerifyEmailResponse(message="Email подтверждён. Теперь вы можете войти в систему.")
+
+    access_token = create_access_token(user.id)
+    display_name = (user.display_name or user.full_name or "").strip()
+    auth_user = AuthUser(id=user.id, email=user.email, name=display_name or user.email)
+
+    return VerifyEmailLoginResponse(
+        access_token=access_token,
+        token_type="bearer",
+        user=auth_user,
+    )
 
 
 @router.post("/auth/login", response_model=Token)
@@ -166,7 +183,7 @@ def login(data: UserLogin, db: DbSession) -> Token:
     Вход по email и паролю. Возвращает JWT access_token.
     Вход разрешён только после подтверждения email (is_verified=True).
     """
-    email_normalized = data.email.strip().lower()
+    email_normalized = _normalize_email(data.email)
     stmt = select(User).where(User.email == email_normalized)
     user = db.execute(stmt).scalar_one_or_none()
     if not user:
@@ -186,6 +203,89 @@ def login(data: UserLogin, db: DbSession) -> Token:
         )
     token = create_access_token(user.id)
     return Token(access_token=token, token_type="bearer")
+
+
+@router.post("/auth/forgot-password")
+def forgot_password(data: ForgotPasswordRequest, db: DbSession) -> dict[str, str]:
+    """
+    Забыли пароль: генерируем 6-значный код и отправляем на email.
+    Ответ всегда 200 с общей формулировкой, чтобы не раскрывать наличие пользователя.
+    """
+    email_normalized = _normalize_email(data.email)
+    stmt = select(User).where(User.email == email_normalized)
+    user = db.execute(stmt).scalar_one_or_none()
+    if not user:
+        # Не раскрываем, есть ли такой пользователь
+        return {"message": "Если такой email зарегистрирован, на него отправлен код для сброса пароля."}
+
+    code = _generate_code(6)
+    expires_at = datetime.now(timezone.utc) + timedelta(
+        minutes=settings.email_verification_code_expire_minutes
+    )
+    existing = db.execute(
+        select(PasswordResetCode).where(PasswordResetCode.user_id == user.id)
+    ).scalar_one_or_none()
+    if existing:
+        existing.code = code
+        existing.expires_at = expires_at
+        reset = existing
+    else:
+        reset = PasswordResetCode(user_id=user.id, code=code, expires_at=expires_at)
+        db.add(reset)
+    db.commit()
+
+    try:
+        send_password_reset_email(user.email, code)
+    except Exception:
+        # В целях безопасности не раскрываем детали ошибки внешнему клиенту
+        pass
+
+    return {"message": "Если такой email зарегистрирован, на него отправлен код для сброса пароля."}
+
+
+@router.post("/auth/reset-password")
+def reset_password(data: ResetPasswordRequest, db: DbSession) -> dict[str, str]:
+    """
+    Сброс пароля по коду из письма.
+    - проверяем пользователя по email
+    - ищем и валидируем код
+    - проверяем срок действия
+    - меняем пароль и удаляем код
+    """
+    email_normalized = _normalize_email(data.email)
+    user = db.execute(select(User).where(User.email == email_normalized)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Пользователь с таким email не найден.",
+        )
+
+    reset = db.execute(
+        select(PasswordResetCode).where(PasswordResetCode.user_id == user.id)
+    ).scalar_one_or_none()
+    if not reset:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Код для сброса пароля не найден или уже использован.",
+        )
+    if reset.expires_at < datetime.now(timezone.utc):
+        db.delete(reset)
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Срок действия кода для сброса пароля истёк.",
+        )
+    if reset.code != data.reset_code.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Неверный код для сброса пароля.",
+        )
+
+    user.hashed_password = hash_password(data.new_password)
+    db.delete(reset)
+    db.commit()
+
+    return {"message": "Пароль успешно изменён. Теперь вы можете войти в систему."}
 
 
 @router.get("/auth/me", response_model=UserResponse)

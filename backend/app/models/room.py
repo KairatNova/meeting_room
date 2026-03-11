@@ -11,6 +11,7 @@ from app.database import Base
 
 if TYPE_CHECKING:
     from app.models.booking import Booking
+    from app.models.room_photo import RoomPhoto
 
 
 class Room(Base):
@@ -33,6 +34,12 @@ class Room(Base):
         "Booking",
         back_populates="room",
         lazy="selectin",
+    )
+    photos: Mapped[list["RoomPhoto"]] = relationship(
+        "RoomPhoto",
+        back_populates="room",
+        lazy="selectin",
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:

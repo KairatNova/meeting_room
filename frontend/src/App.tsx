@@ -8,6 +8,8 @@ import { RoomListPage } from "./pages/RoomListPage";
 import { RoomDetailPage } from "./pages/RoomDetailPage";
 import { MyBookingsPage } from "./pages/MyBookingsPage";
 import { VerifyEmailPage } from "./pages/VerifyEmailPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { AdminPage } from "./pages/AdminPage";
 import { ProfilePage } from "./pages/ProfilePage";
 
@@ -40,6 +42,8 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/rooms" element={<RoomListPage />} />
         <Route path="/rooms/:roomId" element={<RoomDetailPage />} />
         <Route

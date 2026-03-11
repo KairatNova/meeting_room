@@ -70,10 +70,53 @@ class VerifyEmailRequest(BaseModel):
     """Тело запроса подтверждения email (страница ввода кода)."""
 
     email: EmailStr
-    code: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$")
+    verification_code: str = Field(
+        ...,
+        min_length=6,
+        max_length=6,
+        pattern=r"^\d{6}$",
+        description="6-значный код подтверждения из письма",
+    )
 
 
-class VerifyEmailResponse(BaseModel):
-    """Ответ после успешного подтверждения email."""
+class AuthUser(BaseModel):
+    """Короткая информация о пользователе в ответах авторизации."""
 
-    message: str = "Email подтверждён. Теперь вы можете войти в систему."
+    id: int
+    email: str
+    name: str
+
+
+class VerifyEmailLoginResponse(BaseModel):
+    """
+    Ответ после успешного подтверждения email:
+    сразу возвращаем access_token и краткую информацию о пользователе.
+    """
+
+    access_token: str
+    token_type: str = "bearer"
+    user: AuthUser
+
+
+# --- Сброс пароля ---
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Запрос на сброс пароля (забыли пароль)."""
+
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    """Сброс пароля по коду из письма."""
+
+    email: EmailStr
+    reset_code: str = Field(
+        ...,
+        min_length=6,
+        max_length=6,
+        pattern=r"^\d{6}$",
+        description="6-значный код для сброса пароля",
+    )
+    new_password: str = Field(..., min_length=8)
+

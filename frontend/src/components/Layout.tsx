@@ -52,12 +52,6 @@ export function Layout({ children }: LayoutProps) {
             <span className="text-xl font-semibold tracking-tight">Meeting Rooms</span>
           </Link>
           <nav className="flex items-center gap-3 text-sm">
-            <Link
-              to="/rooms"
-              className="hover:bg-blue-800 px-3 py-1.5 rounded-md transition-colors"
-            >
-              {t("nav", "rooms")}
-            </Link>
             {user ? (
               <>
                 {user.is_admin && (

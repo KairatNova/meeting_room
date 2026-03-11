@@ -81,6 +81,11 @@ export function LoginPage() {
       <p className="mt-4 text-sm text-gray-600">
         Нет аккаунта? <Link to="/register" className="text-indigo-600 hover:underline">Регистрация</Link>
       </p>
+      <p className="mt-2 text-sm text-gray-600">
+        <Link to="/forgot-password" className="text-indigo-600 hover:underline">
+          Забыли пароль?
+        </Link>
+      </p>
     </div>
   );
 }
