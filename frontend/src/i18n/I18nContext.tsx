@@ -20,7 +20,7 @@ const STORAGE_KEY = "lang";
 function getInitialLang(): Lang {
   const fromStorage = (typeof window !== "undefined" &&
     window.localStorage.getItem(STORAGE_KEY)) as Lang | null;
-  if (fromStorage === "en" || fromStorage === "ru") return fromStorage;
+  if (fromStorage === "en" || fromStorage === "ru" || fromStorage === "ky") return fromStorage;
   return "ru";
 }
 
@@ -39,8 +39,9 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       lang,
       setLang,
       t: (ns, key) => {
-        const d = translations[lang][ns] as Record<string, string>;
-        return d[key] ?? key;
+        const current = translations[lang][ns] as Record<string, string>;
+        const ruFallback = translations.ru[ns] as Record<string, string>;
+        return current[key] ?? ruFallback[key] ?? key;
       },
     }),
     [lang]

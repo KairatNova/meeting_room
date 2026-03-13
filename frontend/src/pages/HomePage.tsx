@@ -20,6 +20,10 @@ export function HomePage() {
   const [capacityMin, setCapacityMin] = useState("");
   const [search, setSearch] = useState("");
   const [amenities, setAmenities] = useState("");
+  const [region, setRegion] = useState("");
+  const [city, setCity] = useState("");
+  const [district, setDistrict] = useState("");
+  const [address, setAddress] = useState("");
   const [sortBy, setSortBy] = useState("name_asc");
 
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -38,7 +42,16 @@ export function HomePage() {
     setLoading(true);
     setFilterError(null);
 
-    const params: { capacity_min?: number; search?: string; amenities?: string; sort_by?: string } = {
+    const params: {
+      capacity_min?: number;
+      search?: string;
+      amenities?: string;
+      region?: string;
+      city?: string;
+      district?: string;
+      address?: string;
+      sort_by?: string;
+    } = {
       sort_by: sortBy,
     };
     const parsedCapacity = Number.parseInt(capacityMin, 10);
@@ -47,6 +60,10 @@ export function HomePage() {
     }
     if (search.trim()) params.search = search.trim();
     if (amenities.trim()) params.amenities = amenities.trim();
+    if (region.trim()) params.region = region.trim();
+    if (city.trim()) params.city = city.trim();
+    if (district.trim()) params.district = district.trim();
+    if (address.trim()) params.address = address.trim();
 
     const now = new Date();
     const baseDate = date || now.toISOString().slice(0, 10);
@@ -59,7 +76,7 @@ export function HomePage() {
         const from = new Date(`${baseDate}T${timeStart}:00`);
         const to = new Date(`${baseDate}T${timeEnd}:00`);
         if (to <= from) {
-          setFilterError("Время окончания должно быть позже времени начала.");
+          setFilterError(t("home", "endAfterStart"));
         } else {
           fromIso = from.toISOString();
           toIso = to.toISOString();
@@ -107,9 +124,52 @@ export function HomePage() {
     return () => {
       cancelled = true;
     };
-  }, [user, capacityMin, search, amenities, sortBy, date, timeStart, timeEnd]);
+  }, [user, capacityMin, search, amenities, region, city, district, address, sortBy, date, timeStart, timeEnd]);
 
   const shownCount = useMemo(() => rooms.length, [rooms]);
+  const hasActiveFilters = Boolean(
+    date ||
+      timeStart ||
+      timeEnd ||
+      capacityMin ||
+      search ||
+      amenities ||
+      region ||
+      city ||
+      district ||
+      address ||
+      sortBy !== "name_asc"
+  );
+
+  const activeFilterLabels = useMemo(() => {
+    const labels: string[] = [];
+    if (date) labels.push(`Дата: ${date}`);
+    if (timeStart) labels.push(`Начало: ${timeStart}`);
+    if (timeEnd) labels.push(`Окончание: ${timeEnd}`);
+    if (capacityMin) labels.push(`Людей от: ${capacityMin}`);
+    if (search) labels.push(`Название: ${search}`);
+    if (amenities) labels.push(`Удобства: ${amenities}`);
+    if (region) labels.push(`Область: ${region}`);
+    if (city) labels.push(`Город: ${city}`);
+    if (district) labels.push(`Район: ${district}`);
+    if (address) labels.push(`Адрес: ${address}`);
+    if (sortBy !== "name_asc") labels.push("Сортировка изменена");
+    return labels;
+  }, [address, amenities, capacityMin, city, date, district, region, search, sortBy, timeEnd, timeStart]);
+
+  const resetFilters = () => {
+    setDate("");
+    setTimeStart("");
+    setTimeEnd("");
+    setCapacityMin("");
+    setSearch("");
+    setAmenities("");
+    setRegion("");
+    setCity("");
+    setDistrict("");
+    setAddress("");
+    setSortBy("name_asc");
+  };
 
   const handleSearchClick = () => {
     if (!user) {
@@ -122,92 +182,146 @@ export function HomePage() {
 
   return (
     <div className="space-y-8">
-      <section className="rounded-2xl bg-gradient-to-r from-blue-900 to-blue-700 text-white px-6 py-10 shadow-lg">
+      <section className="rounded-2xl bg-gradient-to-r from-blue-900 to-blue-700 text-white px-6 py-8 shadow-lg">
         <h1 className="text-3xl md:text-4xl font-bold mb-3">{t("home", "title")}</h1>
-        <p className="text-blue-100 max-w-2xl mb-6">{t("home", "subtitle")}</p>
+        <p className="text-blue-100 max-w-3xl mb-4">{t("home", "subtitle")}</p>
 
-        <div className="bg-white rounded-xl shadow-md p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 text-gray-800">
+        <div className="app-card p-4 text-gray-800">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">{t("home", "date")}</label>
+            <label className="field-label">{t("home", "date")}</label>
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="field-input"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">{t("home", "timeStart")}</label>
+            <label className="field-label">{t("home", "timeStart")}</label>
             <input
               type="time"
               value={timeStart}
               onChange={(e) => setTimeStart(e.target.value)}
-              className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="field-input"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">{t("home", "timeEnd")}</label>
+            <label className="field-label">{t("home", "timeEnd")}</label>
             <input
               type="time"
               value={timeEnd}
               onChange={(e) => setTimeEnd(e.target.value)}
-              className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="field-input"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">{t("home", "people")}</label>
+            <label className="field-label">{t("home", "people")}</label>
             <input
               type="number"
               min={1}
               value={capacityMin}
               onChange={(e) => setCapacityMin(e.target.value)}
               placeholder="Например, 5"
-              className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="field-input"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Поиск по названию</label>
+            <label className="field-label">{t("home", "searchByName")}</label>
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Например, Room A"
-              className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="field-input"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Удобства</label>
+            <label className="field-label">{t("home", "amenities")}</label>
             <input
               type="text"
               value={amenities}
               onChange={(e) => setAmenities(e.target.value)}
               placeholder="Например, Проектор"
-              className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="field-input"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Сортировка</label>
+            <label className="field-label">{t("home", "sorting")}</label>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="field-input"
             >
-              <option value="name_asc">По названию (А-Я)</option>
-              <option value="name_desc">По названию (Я-А)</option>
-              <option value="capacity_asc">По вместимости (возр.)</option>
-              <option value="capacity_desc">По вместимости (убыв.)</option>
-              <option value="newest">Сначала новые</option>
+              <option value="name_asc">{t("home", "sortNameAsc")}</option>
+              <option value="name_desc">{t("home", "sortNameDesc")}</option>
+              <option value="capacity_asc">{t("home", "sortCapacityAsc")}</option>
+              <option value="capacity_desc">{t("home", "sortCapacityDesc")}</option>
+              <option value="newest">{t("home", "sortNewest")}</option>
             </select>
           </div>
-          <div className="flex items-end">
+          <div>
+            <label className="field-label">{t("home", "region")}</label>
+            <input
+              type="text"
+              value={region}
+              onChange={(e) => setRegion(e.target.value)}
+              placeholder="Например, Чуйская"
+              className="field-input"
+            />
+          </div>
+          <div>
+            <label className="field-label">{t("home", "city")}</label>
+            <input
+              type="text"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="Например, Бишкек"
+              className="field-input"
+            />
+          </div>
+          <div>
+            <label className="field-label">{t("home", "district")}</label>
+            <input
+              type="text"
+              value={district}
+              onChange={(e) => setDistrict(e.target.value)}
+              placeholder="Например, Октябрьский"
+              className="field-input"
+            />
+          </div>
+          <div>
+            <label className="field-label">{t("home", "address")}</label>
+            <input
+              type="text"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Например, ул. Логвиненко 1"
+              className="field-input"
+            />
+          </div>
+          <div className="flex items-end gap-2">
             <button
               type="button"
               onClick={handleSearchClick}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-md px-6 py-2.5 text-sm text-center transition-colors"
+              className="btn-primary w-full"
             >
               {t("home", "search")}
             </button>
+            <button type="button" onClick={resetFilters} className="btn-secondary">
+              {t("home", "reset")}
+            </button>
           </div>
+          </div>
+          {hasActiveFilters && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {activeFilterLabels.map((label) => (
+                <span key={label} className="px-2.5 py-1 text-xs rounded-full bg-slate-100 text-slate-700">
+                  {label}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         {filterError && <p className="mt-3 text-sm text-red-200">{filterError}</p>}
       </section>
@@ -215,14 +329,20 @@ export function HomePage() {
       {user ? (
         <section id="rooms-list" className="space-y-4">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold text-gray-900">Доступные комнаты</h2>
-            <span className="text-sm text-gray-500">Найдено: {shownCount}</span>
+            <h2 className="text-xl font-semibold text-gray-900">{t("home", "availableRooms")}</h2>
+            <span className="text-sm text-gray-500">{t("home", "found")}: {shownCount}</span>
           </div>
 
           {loading ? (
-            <p className="text-gray-500">Загрузка комнат...</p>
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, idx) => (
+                <div key={idx} className="app-card h-28 animate-pulse" />
+              ))}
+            </div>
           ) : rooms.length === 0 ? (
-            <p className="text-gray-500">По выбранным фильтрам комнат не найдено.</p>
+            <div className="app-card p-5">
+              <p className="empty-state">{t("home", "noRoomsByFilters")}</p>
+            </div>
           ) : (
             <ul className="space-y-3">
               {rooms.map((room) => {
@@ -231,20 +351,26 @@ export function HomePage() {
                   <li key={room.id}>
                     <Link
                       to={`/rooms/${room.id}`}
-                      className="flex flex-col sm:flex-row bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md hover:border-blue-400 transition-all"
+                      className="app-card flex flex-col sm:flex-row overflow-hidden hover:shadow-md hover:border-blue-400 transition-all"
                     >
                       <div className="sm:w-52 h-40 sm:h-auto bg-gray-100 shrink-0">
                         {photoUrl ? (
                           <img src={photoUrl} alt={room.name} className="w-full h-full object-cover" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-sm text-gray-400">Нет фото</div>
+                          <div className="w-full h-full flex items-center justify-center text-sm text-gray-400">{t("home", "noPhoto")}</div>
                         )}
                       </div>
                       <div className="p-4 flex-1 space-y-2">
-                        <h3 className="font-semibold text-gray-900">{room.name}</h3>
-                        <p className="text-sm text-gray-600 line-clamp-2">{room.description ?? "Описание не указано"}</p>
-                        <p className="text-sm text-gray-500">Вместимость: {room.capacity}</p>
-                        <p className="text-sm text-gray-500">Удобства: {room.amenities ?? "—"}</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className="font-semibold text-gray-900">{room.name}</h3>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">{t("home", "free")}</span>
+                        </div>
+                        <p className="text-sm text-gray-600 line-clamp-2">{room.description ?? t("home", "noDescription")}</p>
+                        <p className="text-sm text-gray-500">{t("home", "capacityLabel")}: {room.capacity}</p>
+                        <p className="text-sm text-gray-500">{t("home", "amenitiesLabel")}: {room.amenities ?? "—"}</p>
+                        <p className="text-sm text-gray-500">
+                          {t("home", "locationLabel")}: {[room.region, room.city, room.district, room.address].filter(Boolean).join(", ") || "—"}
+                        </p>
                       </div>
                     </Link>
                   </li>
@@ -254,12 +380,12 @@ export function HomePage() {
           )}
         </section>
       ) : (
-        <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-gray-900">Просмотр комнат после входа</h2>
-          <p className="text-gray-600">Чтобы увидеть доступные комнаты с фотографиями и фильтрами, войдите в аккаунт.</p>
+        <section className="app-card p-5 space-y-3">
+          <h2 className="text-xl font-semibold text-gray-900">{t("home", "authListTitle")}</h2>
+          <p className="text-gray-600">{t("home", "authListHint")}</p>
           <div className="flex gap-3">
-            <Link to="/login" className="text-sm text-blue-700 hover:underline">Войти</Link>
-            <Link to="/register" className="text-sm text-blue-700 hover:underline">Зарегистрироваться</Link>
+            <Link to="/login" className="text-sm text-blue-700 hover:underline">{t("auth", "signIn")}</Link>
+            <Link to="/register" className="text-sm text-blue-700 hover:underline">{t("auth", "signUp")}</Link>
           </div>
         </section>
       )}
@@ -274,7 +400,7 @@ export function HomePage() {
         >
           <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
             <h2 id="search-auth-title" className="text-lg font-semibold text-gray-900">
-              Для поиска комнат необходимо зарегистрироваться или войти.
+              {t("home", "authRequiredModal")}
             </h2>
             <div className="flex flex-col sm:flex-row gap-3">
               <button
@@ -285,7 +411,7 @@ export function HomePage() {
                 }}
                 className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-md transition-colors"
               >
-                Войти
+                {t("auth", "signIn")}
               </button>
               <button
                 type="button"
@@ -295,7 +421,7 @@ export function HomePage() {
                 }}
                 className="flex-1 border border-gray-300 hover:bg-gray-50 text-gray-800 font-medium py-2.5 rounded-md transition-colors"
               >
-                Зарегистрироваться
+                {t("auth", "signUp")}
               </button>
             </div>
           </div>

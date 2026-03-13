@@ -2,12 +2,14 @@ import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { authApi } from "../api/auth";
 import { ApiError } from "../api/client";
+import { useI18n } from "../i18n/I18nContext";
 
 /**
  * Страница ввода кода подтверждения email.
  * Email передаётся через state при редиректе с регистрации или с логина (403).
  */
 export function VerifyEmailPage() {
+  const { t } = useI18n();
   const location = useLocation();
   const navigate = useNavigate();
   const emailFromState = (location.state as { email?: string } | null)?.email;
@@ -37,7 +39,7 @@ export function VerifyEmailPage() {
       navigate("/", { replace: true });
       window.location.reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Ошибка проверки кода");
+      setError(err instanceof ApiError ? err.message : t("common", "error"));
     } finally {
       setLoading(false);
     }
@@ -48,9 +50,9 @@ export function VerifyEmailPage() {
 
   return (
     <div className="max-w-md mx-auto">
-      <h1 className="text-2xl font-semibold mb-2">Подтверждение email</h1>
+      <h1 className="text-2xl font-semibold mb-2">{t("auth", "verifyTitle")}</h1>
       <p className="text-gray-600 text-sm mb-4">
-        Мы отправили 6-значный код на вашу почту. Введите его ниже. Код действителен 10 минут.
+        {t("auth", "verifyHint")}
       </p>
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
@@ -81,7 +83,7 @@ export function VerifyEmailPage() {
         )}
         <div>
           <label htmlFor="code" className="block text-sm font-medium text-gray-700 mb-1">
-            Код из письма
+            {t("auth", "resetCode")}
           </label>
           <input
             id="code"
@@ -100,7 +102,7 @@ export function VerifyEmailPage() {
           disabled={loading}
           className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 disabled:opacity-50"
         >
-          {loading ? "Проверка…" : "Подтвердить"}
+          {loading ? t("auth", "verifying") : t("auth", "verifyCode")}
         </button>
       </form>
       <p className="mt-4 text-sm text-gray-600">
@@ -108,7 +110,7 @@ export function VerifyEmailPage() {
         <Link to="/register" className="text-indigo-600 hover:underline">зарегистрируйтесь снова</Link>.
       </p>
       <p className="mt-2 text-sm text-gray-600">
-        <Link to="/login" className="text-indigo-600 hover:underline">Вход</Link>
+        <Link to="/login" className="text-indigo-600 hover:underline">{t("auth", "signIn")}</Link>
       </p>
     </div>
   );

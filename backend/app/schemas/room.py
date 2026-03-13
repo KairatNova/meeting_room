@@ -28,6 +28,10 @@ class RoomCreate(BaseModel):
     description: str | None = None
     capacity: int = Field(..., ge=1)
     amenities: str | None = None
+    region: str | None = None
+    city: str | None = None
+    district: str | None = None
+    address: str | None = None
 
 
 class RoomUpdate(BaseModel):
@@ -37,6 +41,10 @@ class RoomUpdate(BaseModel):
     description: str | None = None
     capacity: int | None = Field(None, ge=1)
     amenities: str | None = None
+    region: str | None = None
+    city: str | None = None
+    district: str | None = None
+    address: str | None = None
 
 
 class RoomResponse(BaseModel):
@@ -47,6 +55,10 @@ class RoomResponse(BaseModel):
     description: str | None
     capacity: int
     amenities: str | None
+    region: str | None
+    city: str | None
+    district: str | None
+    address: str | None
     created_at: datetime
     photos: list[RoomPhotoResponse] = Field(default_factory=list)
 
@@ -66,6 +78,10 @@ def room_to_response(room: "Room") -> RoomResponse:
         description=r.description,
         capacity=r.capacity,
         amenities=r.amenities,
+        region=r.region,
+        city=r.city,
+        district=r.district,
+        address=r.address,
         created_at=r.created_at,
         photos=photos,
     )

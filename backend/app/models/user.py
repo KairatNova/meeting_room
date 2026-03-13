@@ -12,6 +12,7 @@ from app.database import Base
 if TYPE_CHECKING:
     from app.models.booking import Booking
     from app.models.email_verification import EmailVerificationCode
+    from app.models.room_review import RoomReview
 
 
 class User(Base):
@@ -55,6 +56,12 @@ class User(Base):
         "EmailVerificationCode",
         back_populates="user",
         uselist=False,
+        lazy="selectin",
+        cascade="all, delete-orphan",
+    )
+    room_reviews: Mapped[list["RoomReview"]] = relationship(
+        "RoomReview",
+        back_populates="user",
         lazy="selectin",
         cascade="all, delete-orphan",
     )

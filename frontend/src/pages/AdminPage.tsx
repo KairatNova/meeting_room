@@ -2,16 +2,27 @@ import { useEffect, useRef, useState } from "react";
 import { roomsApi } from "../api/rooms";
 import { ApiError } from "../api/client";
 import type { Room, RoomCreate } from "../types/api";
+import { useI18n } from "../i18n/I18nContext";
 
 /**
  * Админ-панель: список комнат, добавление, редактирование, удаление, фотографии.
  */
 export function AdminPage() {
+  const { t } = useI18n();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState<RoomCreate>({ name: "", description: "", capacity: 2, amenities: "" });
+  const [form, setForm] = useState<RoomCreate>({
+    name: "",
+    description: "",
+    capacity: 2,
+    amenities: "",
+    region: "",
+    city: "",
+    district: "",
+    address: "",
+  });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
@@ -37,7 +48,16 @@ export function AdminPage() {
 
   const handleCreate = () => {
     setEditingId(null);
-    setForm({ name: "", description: "", capacity: 2, amenities: "" });
+    setForm({
+      name: "",
+      description: "",
+      capacity: 2,
+      amenities: "",
+      region: "",
+      city: "",
+      district: "",
+      address: "",
+    });
     setPhotosToAdd([]);
     setSaveError(null);
     setPhotoError(null);
@@ -50,6 +70,10 @@ export function AdminPage() {
       description: room.description ?? "",
       capacity: room.capacity,
       amenities: room.amenities ?? "",
+      region: room.region ?? "",
+      city: room.city ?? "",
+      district: room.district ?? "",
+      address: room.address ?? "",
     });
     setPhotosToAdd([]);
     setSaveError(null);
@@ -64,10 +88,23 @@ export function AdminPage() {
     const name = form.name.trim();
     const description = (form.description ?? "").trim() || null;
     const amenities = (form.amenities ?? "").trim() || null;
+    const region = (form.region ?? "").trim() || null;
+    const city = (form.city ?? "").trim() || null;
+    const district = (form.district ?? "").trim() || null;
+    const address = (form.address ?? "").trim() || null;
     const capacity = form.capacity;
     try {
       if (editingId !== null) {
-        await roomsApi.update(editingId, { name, description, capacity, amenities });
+        await roomsApi.update(editingId, {
+          name,
+          description,
+          capacity,
+          amenities,
+          region,
+          city,
+          district,
+          address,
+        });
         if (photosToAdd.length > 0) {
           setUploadingPhotos(true);
           await roomsApi.uploadPhotos(editingId, photosToAdd);
@@ -76,7 +113,16 @@ export function AdminPage() {
         }
         setEditingId(null);
       } else {
-        const room = await roomsApi.create({ name, description, capacity, amenities });
+        const room = await roomsApi.create({
+          name,
+          description,
+          capacity,
+          amenities,
+          region,
+          city,
+          district,
+          address,
+        });
         if (photosToAdd.length > 0) {
           setUploadingPhotos(true);
           await roomsApi.uploadPhotos(room.id, photosToAdd);
@@ -84,13 +130,22 @@ export function AdminPage() {
           setUploadingPhotos(false);
         }
       }
-      setForm({ name: "", description: "", capacity: 2, amenities: "" });
+      setForm({
+        name: "",
+        description: "",
+        capacity: 2,
+        amenities: "",
+        region: "",
+        city: "",
+        district: "",
+        address: "",
+      });
       loadRooms();
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) {
-        setSaveError("Добавление и редактирование комнат доступно только администратору.");
+        setSaveError("Admin access required");
       } else {
-        setSaveError(err instanceof ApiError ? err.message : "Ошибка сохранения");
+        setSaveError(err instanceof ApiError ? err.message : t("common", "error"));
       }
     } finally {
       setSaving(false);
@@ -125,7 +180,7 @@ export function AdminPage() {
       await roomsApi.uploadPhotos(editingId, list);
       loadRooms();
     } catch (err) {
-      setPhotoError(err instanceof ApiError ? err.message : "Ошибка загрузки фото");
+      setPhotoError(err instanceof ApiError ? err.message : t("common", "error"));
     } finally {
       setUploadingPhotos(false);
     }
@@ -138,7 +193,7 @@ export function AdminPage() {
       await roomsApi.deletePhoto(roomId, photoId);
       loadRooms();
     } catch (err) {
-      setPhotoError(err instanceof ApiError ? err.message : "Ошибка удаления фото");
+      setPhotoError(err instanceof ApiError ? err.message : t("common", "error"));
     }
   };
 
@@ -153,70 +208,117 @@ export function AdminPage() {
       setDeleteConfirmId(null);
       loadRooms();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Ошибка удаления");
+      setError(err instanceof ApiError ? err.message : t("common", "error"));
     }
   };
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Админ-панель</h1>
-      <p className="text-gray-600 text-sm">Управление переговорными комнатами.</p>
+      <h1 className="text-2xl font-semibold">{t("admin", "title")}</h1>
+      <p className="text-gray-600 text-sm">{t("admin", "subtitle")}</p>
 
       {error && (
         <div className="p-3 bg-red-50 text-red-700 rounded text-sm">{error}</div>
       )}
 
-      <section className="bg-white rounded-lg border border-gray-200 p-4">
+      <section className="app-card p-4">
         <h2 className="text-lg font-semibold mb-3">
-          {editingId !== null ? "Редактировать комнату" : "Добавить комнату"}
+          {editingId !== null ? t("admin", "editRoom") : t("admin", "addRoom")}
         </h2>
         {saveError && (
           <div className="mb-3 p-2 bg-red-50 text-red-700 rounded text-sm">{saveError}</div>
         )}
-        <form onSubmit={handleSubmit} className="space-y-3 max-w-md">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Название</label>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+            <label className="field-label">{t("admin", "roomName")}</label>
             <input
               type="text"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               required
-              className="w-full border border-gray-300 rounded px-3 py-2"
+              className="field-input"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Описание</label>
+            </div>
+            <div>
+            <label className="field-label">{t("admin", "description")}</label>
             <textarea
               value={form.description ?? ""}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               rows={2}
-              className="w-full border border-gray-300 rounded px-3 py-2"
+              className="field-input"
             />
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Вместимость</label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+            <label className="field-label">{t("admin", "capacity")}</label>
             <input
               type="number"
               min={1}
               value={form.capacity}
               onChange={(e) => setForm((f) => ({ ...f, capacity: parseInt(e.target.value, 10) || 1 }))}
-              className="w-full border border-gray-300 rounded px-3 py-2"
+              className="field-input"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Удобства</label>
+            </div>
+            <div>
+            <label className="field-label">{t("admin", "amenities")}</label>
             <input
               type="text"
               value={form.amenities ?? ""}
               onChange={(e) => setForm((f) => ({ ...f, amenities: e.target.value }))}
               placeholder="Проектор, доска, кондиционер"
-              className="w-full border border-gray-300 rounded px-3 py-2"
+              className="field-input"
             />
+            </div>
+          </div>
+          <div className="pt-1 border-t border-slate-200" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+            <label className="field-label">{t("admin", "region")}</label>
+            <input
+              type="text"
+              value={form.region ?? ""}
+              onChange={(e) => setForm((f) => ({ ...f, region: e.target.value }))}
+              placeholder="Например, Чуйская область"
+              className="field-input"
+            />
+            </div>
+            <div>
+            <label className="field-label">{t("admin", "city")}</label>
+            <input
+              type="text"
+              value={form.city ?? ""}
+              onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+              placeholder="Например, Бишкек"
+              className="field-input"
+            />
+            </div>
+            <div>
+            <label className="field-label">{t("admin", "district")}</label>
+            <input
+              type="text"
+              value={form.district ?? ""}
+              onChange={(e) => setForm((f) => ({ ...f, district: e.target.value }))}
+              placeholder="Например, Октябрьский"
+              className="field-input"
+            />
+            </div>
+            <div>
+            <label className="field-label">{t("admin", "address")}</label>
+            <input
+              type="text"
+              value={form.address ?? ""}
+              onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+              placeholder="Например, ул. Токтогула 100"
+              className="field-input"
+            />
+            </div>
           </div>
 
           {/* Фотографии */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Фотографии</label>
+          <div className="pt-1 border-t border-slate-200">
+            <label className="field-label">{t("admin", "photos")}</label>
             {photoError && (
               <div className="mb-2 p-2 bg-red-50 text-red-700 rounded text-sm">{photoError}</div>
             )}
@@ -235,7 +337,7 @@ export function AdminPage() {
                       disabled={uploadingPhotos}
                       className="absolute inset-0 flex items-center justify-center bg-black/50 rounded opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-medium disabled:opacity-50"
                     >
-                      Удалить
+                      {t("admin", "delete")}
                     </button>
                   </div>
                 ))}
@@ -257,7 +359,7 @@ export function AdminPage() {
                   disabled={uploadingPhotos}
                   className="text-sm text-indigo-600 hover:underline disabled:opacity-50"
                 >
-                  {uploadingPhotos ? "Загрузка…" : "Добавить ещё фото"}
+                  {uploadingPhotos ? t("admin", "uploading") : t("admin", "photos")}
                 </button>
               </div>
             )}
@@ -268,7 +370,7 @@ export function AdminPage() {
                   accept="image/jpeg,image/png,image/gif,image/webp"
                   multiple
                   onChange={handleAddPhotos}
-                  className="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:bg-indigo-50 file:text-indigo-700"
+                  className="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:bg-indigo-50 file:text-indigo-700 file:font-medium"
                 />
                 {photosToAdd.length > 0 && (
                   <div className="flex flex-wrap gap-2">
@@ -294,27 +396,27 @@ export function AdminPage() {
             <button
               type="submit"
               disabled={saving || uploadingPhotos}
-              className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 disabled:opacity-50"
+              className="btn-primary"
             >
-              {saving ? "Сохранение…" : uploadingPhotos ? "Загрузка фото…" : editingId !== null ? "Сохранить" : "Добавить"}
+              {saving ? t("common", "loading") : uploadingPhotos ? t("admin", "uploading") : editingId !== null ? t("admin", "save") : t("admin", "add")}
             </button>
             {editingId !== null && (
               <button
                 type="button"
                 onClick={handleCreate}
-                className="border border-gray-300 px-4 py-2 rounded hover:bg-gray-50"
+                className="btn-secondary"
               >
-                Отмена
+                {t("admin", "cancel")}
               </button>
             )}
           </div>
         </form>
       </section>
 
-      <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <h2 className="text-lg font-semibold p-4 border-b border-gray-200">Комнаты</h2>
+      <section className="app-card overflow-hidden">
+        <h2 className="text-lg font-semibold p-4 border-b border-gray-200">{t("admin", "rooms")}</h2>
         {loading ? (
-          <p className="p-4 text-gray-500">Загрузка…</p>
+          <p className="p-4 text-gray-500">{t("common", "loading")}</p>
         ) : rooms.length === 0 ? (
           <p className="p-4 text-gray-500">Комнат пока нет. Добавьте первую.</p>
         ) : (
@@ -322,10 +424,11 @@ export function AdminPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left p-3 font-medium text-gray-700">Название</th>
-                  <th className="text-left p-3 font-medium text-gray-700 hidden sm:table-cell">Описание</th>
-                  <th className="text-left p-3 font-medium text-gray-700">Вместимость</th>
-                  <th className="text-right p-3 font-medium text-gray-700">Действия</th>
+                  <th className="text-left p-3 font-medium text-gray-700">{t("admin", "roomName")}</th>
+                  <th className="text-left p-3 font-medium text-gray-700 hidden sm:table-cell">{t("admin", "description")}</th>
+                  <th className="text-left p-3 font-medium text-gray-700 hidden lg:table-cell">{t("admin", "location")}</th>
+                  <th className="text-left p-3 font-medium text-gray-700">{t("admin", "capacity")}</th>
+                  <th className="text-right p-3 font-medium text-gray-700">{t("admin", "actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -335,6 +438,9 @@ export function AdminPage() {
                     <td className="p-3 text-gray-600 hidden sm:table-cell max-w-[200px] truncate">
                       {room.description ?? "—"}
                     </td>
+                    <td className="p-3 text-gray-600 hidden lg:table-cell max-w-[260px] truncate">
+                      {[room.region, room.city, room.district, room.address].filter(Boolean).join(", ") || "—"}
+                    </td>
                     <td className="p-3">{room.capacity}</td>
                     <td className="p-3 text-right">
                       <button
@@ -342,7 +448,7 @@ export function AdminPage() {
                         onClick={() => handleEdit(room)}
                         className="text-indigo-600 hover:underline mr-3"
                       >
-                        Изменить
+                        {t("admin", "editRoom")}
                       </button>
                       <button
                         type="button"
@@ -353,7 +459,7 @@ export function AdminPage() {
                             : "text-red-600 hover:underline"
                         }
                       >
-                        {deleteConfirmId === room.id ? "Подтвердить удаление?" : "Удалить"}
+                        {deleteConfirmId === room.id ? t("admin", "confirmDelete") : t("admin", "delete")}
                       </button>
                     </td>
                   </tr>

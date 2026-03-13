@@ -14,6 +14,17 @@ export interface RequestConfig extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
 }
 
+function parseApiErrorMessage(detail: unknown, fallback: string): string {
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail) && detail.length > 0) {
+    const first = detail[0] as { msg?: string } | string;
+    if (typeof first === "string") return first;
+    if (first && typeof first === "object" && typeof first.msg === "string") return first.msg;
+    return JSON.stringify(first);
+  }
+  return fallback;
+}
+
 async function request<T>(
   path: string,
   config: RequestConfig = {}
@@ -42,13 +53,8 @@ async function request<T>(
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    const detail = (body as { detail?: string | string[] }).detail;
-    const message =
-      typeof detail === "string"
-        ? detail
-        : Array.isArray(detail) && detail.length > 0
-          ? String(detail[0])
-          : res.statusText;
+    const detail = (body as { detail?: unknown }).detail;
+    const message = parseApiErrorMessage(detail, res.statusText);
     throw new ApiError(res.status, message);
   }
 

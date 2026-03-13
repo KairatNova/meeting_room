@@ -5,14 +5,17 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.core.dependencies import DbSession, CurrentUser
 from app.models.booking import Booking
 from app.models.room import Room
-from app.schemas.booking import BookingCreate, BookingResponse
+from app.schemas.booking import BookingCreate, BookingResponse, booking_to_response
 from app.services.booking_conflict import has_booking_conflict
 
 router = APIRouter()
+MAX_BOOKING_DURATION_HOURS = 6
+MIN_BOOKING_DURATION_MINUTES = 30
 
 
 def _ensure_utc(dt: datetime) -> datetime:
@@ -33,7 +36,7 @@ def list_bookings(
     Список бронирований. С room_id — брони одной комнаты (для календаря).
     Параметры from_time / to_time задают период (пересечение с ним).
     """
-    stmt = select(Booking).order_by(Booking.start_time)
+    stmt = select(Booking).options(selectinload(Booking.room)).order_by(Booking.start_time)
     if room_id is not None:
         stmt = stmt.where(Booking.room_id == room_id)
     if from_time is not None:
@@ -44,7 +47,7 @@ def list_bookings(
         stmt = stmt.where(Booking.start_time < to_time)
     result = db.execute(stmt)
     bookings = result.scalars().all()
-    return [BookingResponse.model_validate(b) for b in bookings]
+    return [booking_to_response(b) for b in bookings]
 
 
 @router.post("", response_model=BookingResponse, status_code=status.HTTP_201_CREATED)
@@ -55,6 +58,22 @@ def create_booking(data: BookingCreate, db: DbSession, user: CurrentUser) -> Boo
     """
     start = _ensure_utc(data.start_time)
     end = _ensure_utc(data.end_time)
+    if end <= start:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Время окончания должно быть позже времени начала",
+        )
+    duration_seconds = (end - start).total_seconds()
+    if duration_seconds < MIN_BOOKING_DURATION_MINUTES * 60:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Минимальная длительность бронирования — {MIN_BOOKING_DURATION_MINUTES} минут",
+        )
+    if duration_seconds > MAX_BOOKING_DURATION_HOURS * 3600:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Максимальная длительность бронирования — {MAX_BOOKING_DURATION_HOURS} часов",
+        )
     if start < datetime.now(timezone.utc):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -77,7 +96,7 @@ def create_booking(data: BookingCreate, db: DbSession, user: CurrentUser) -> Boo
     db.add(booking)
     db.commit()
     db.refresh(booking)
-    return BookingResponse.model_validate(booking)
+    return booking_to_response(booking)
 
 
 @router.get("/me", response_model=list[BookingResponse])
@@ -88,7 +107,12 @@ def my_bookings(
     to_time: datetime | None = Query(None, description="Конец периода"),
 ) -> list[BookingResponse]:
     """Список бронирований текущего пользователя (будущие или за период)."""
-    stmt = select(Booking).where(Booking.user_id == user.id).order_by(Booking.start_time)
+    stmt = (
+        select(Booking)
+        .options(selectinload(Booking.room))
+        .where(Booking.user_id == user.id)
+        .order_by(Booking.start_time)
+    )
     if from_time is not None:
         from_time = _ensure_utc(from_time)
         stmt = stmt.where(Booking.end_time > from_time)
@@ -97,7 +121,7 @@ def my_bookings(
         stmt = stmt.where(Booking.start_time < to_time)
     result = db.execute(stmt)
     bookings = result.scalars().all()
-    return [BookingResponse.model_validate(b) for b in bookings]
+    return [booking_to_response(b) for b in bookings]
 
 
 @router.delete("/{booking_id}", status_code=status.HTTP_204_NO_CONTENT)

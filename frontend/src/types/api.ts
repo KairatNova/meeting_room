@@ -80,6 +80,10 @@ export interface Room {
   description: string | null;
   capacity: number;
   amenities: string | null;
+  region?: string | null;
+  city?: string | null;
+  district?: string | null;
+  address?: string | null;
   created_at: string;
   photos?: RoomPhoto[];
 }
@@ -89,6 +93,10 @@ export interface RoomCreate {
   description?: string | null;
   capacity: number;
   amenities?: string | null;
+  region?: string | null;
+  city?: string | null;
+  district?: string | null;
+  address?: string | null;
 }
 
 export interface RoomUpdate {
@@ -96,12 +104,32 @@ export interface RoomUpdate {
   description?: string | null;
   capacity?: number;
   amenities?: string | null;
+  region?: string | null;
+  city?: string | null;
+  district?: string | null;
+  address?: string | null;
+}
+
+export interface RoomReview {
+  id: number;
+  room_id: number;
+  user_id: number;
+  author_name: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+}
+
+export interface RoomReviewCreate {
+  rating: number;
+  comment: string;
 }
 
 export interface Booking {
   id: number;
   user_id: number;
   room_id: number;
+  room_name?: string | null;
   start_time: string;
   end_time: string;
   created_at: string;

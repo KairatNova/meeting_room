@@ -12,6 +12,7 @@ from app.database import Base
 if TYPE_CHECKING:
     from app.models.booking import Booking
     from app.models.room_photo import RoomPhoto
+    from app.models.room_review import RoomReview
 
 
 class Room(Base):
@@ -24,6 +25,10 @@ class Room(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     capacity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     amenities: Mapped[str | None] = mapped_column(String(500), nullable=True)  # JSON или строка
+    region: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    city: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    district: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    address: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -37,6 +42,12 @@ class Room(Base):
     )
     photos: Mapped[list["RoomPhoto"]] = relationship(
         "RoomPhoto",
+        back_populates="room",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+    )
+    reviews: Mapped[list["RoomReview"]] = relationship(
+        "RoomReview",
         back_populates="room",
         lazy="selectin",
         cascade="all, delete-orphan",

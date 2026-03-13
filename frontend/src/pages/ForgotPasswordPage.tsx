@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { authApi } from "../api/auth";
 import { ApiError } from "../api/client";
+import { useI18n } from "../i18n/I18nContext";
 
 export function ForgotPasswordPage() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -24,7 +26,7 @@ export function ForgotPasswordPage() {
         state: { email: email.trim() },
       });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Ошибка отправки кода");
+      setError(err instanceof ApiError ? err.message : t("common", "error"));
     } finally {
       setLoading(false);
     }
@@ -32,10 +34,9 @@ export function ForgotPasswordPage() {
 
   return (
     <div className="max-w-md mx-auto">
-      <h1 className="text-2xl font-semibold mb-4">Забыли пароль</h1>
+      <h1 className="text-2xl font-semibold mb-4">{t("auth", "forgotTitle")}</h1>
       <p className="text-sm text-gray-600 mb-4">
-        Введите email, на который зарегистрирован аккаунт. Если такой пользователь существует,
-        мы отправим на него код для сброса пароля.
+        {t("auth", "forgotHint")}
       </p>
       <form onSubmit={handleSubmit} className="space-y-4">
         {message && (
@@ -66,13 +67,13 @@ export function ForgotPasswordPage() {
           disabled={loading}
           className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 disabled:opacity-50"
         >
-          {loading ? "Отправка…" : "Отправить код"}
+          {loading ? t("auth", "sending") : t("auth", "sendCode")}
         </button>
       </form>
       <p className="mt-4 text-sm text-gray-600">
-        Вспомнили пароль?{" "}
+        {t("auth", "rememberPassword")}{" "}
         <Link to="/login" className="text-indigo-600 hover:underline">
-          Войти
+          {t("auth", "signIn")}
         </Link>
       </p>
     </div>

@@ -2,12 +2,14 @@ import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../api/client";
+import { useI18n } from "../i18n/I18nContext";
 
 /**
  * Страница входа: email, пароль, вызов login() и редирект.
  * При 403 «Подтвердите email» — редирект на страницу ввода кода.
  */
 export function LoginPage() {
+  const { t } = useI18n();
   const location = useLocation();
   const successMessage = (location.state as { message?: string } | null)?.message;
   const [email, setEmail] = useState("");
@@ -27,13 +29,13 @@ export function LoginPage() {
         navigate("/verify-email", { state: { email }, replace: true });
         return;
       }
-      setError(err instanceof ApiError ? err.message : "Ошибка входа");
+      setError(err instanceof ApiError ? err.message : t("auth", "loginError"));
     }
   };
 
   return (
     <div className="max-w-md mx-auto">
-      <h1 className="text-2xl font-semibold mb-4">Вход</h1>
+      <h1 className="text-2xl font-semibold mb-4">{t("auth", "loginTitle")}</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
         {successMessage && (
           <div className="bg-green-50 text-green-800 px-3 py-2 rounded text-sm" role="status">
@@ -60,7 +62,7 @@ export function LoginPage() {
         </div>
         <div>
           <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-            Пароль
+            {t("auth", "password")}
           </label>
           <input
             id="password"
@@ -75,15 +77,15 @@ export function LoginPage() {
           type="submit"
           className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700"
         >
-          Войти
+          {t("auth", "signIn")}
         </button>
       </form>
       <p className="mt-4 text-sm text-gray-600">
-        Нет аккаунта? <Link to="/register" className="text-indigo-600 hover:underline">Регистрация</Link>
+        {t("auth", "noAccount")} <Link to="/register" className="text-indigo-600 hover:underline">{t("auth", "signUp")}</Link>
       </p>
       <p className="mt-2 text-sm text-gray-600">
         <Link to="/forgot-password" className="text-indigo-600 hover:underline">
-          Забыли пароль?
+          {t("auth", "forgotPassword")}
         </Link>
       </p>
     </div>

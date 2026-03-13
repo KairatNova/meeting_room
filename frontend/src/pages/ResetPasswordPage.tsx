@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { authApi } from "../api/auth";
 import { ApiError } from "../api/client";
+import { useI18n } from "../i18n/I18nContext";
 
 export function ResetPasswordPage() {
+  const { t } = useI18n();
   const location = useLocation();
   const navigate = useNavigate();
   const emailFromState = (location.state as { email?: string } | null)?.email;
@@ -42,10 +44,10 @@ export function ResetPasswordPage() {
       // после успешного сброса можно отправить на страницу логина
       navigate("/login", {
         replace: true,
-        state: { message: "Пароль изменён. Войдите с новым паролем." },
+        state: { message: t("auth", "passwordChangedLogin") },
       });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Ошибка смены пароля");
+      setError(err instanceof ApiError ? err.message : t("common", "error"));
     } finally {
       setLoading(false);
     }
@@ -55,7 +57,7 @@ export function ResetPasswordPage() {
 
   return (
     <div className="max-w-md mx-auto">
-      <h1 className="text-2xl font-semibold mb-4">Сброс пароля</h1>
+      <h1 className="text-2xl font-semibold mb-4">{t("auth", "resetTitle")}</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
         {message && (
           <div className="bg-green-50 text-green-800 px-3 py-2 rounded text-sm" role="status">
@@ -89,7 +91,7 @@ export function ResetPasswordPage() {
         )}
         <div>
           <label htmlFor="reset-code" className="block text-sm font-medium text-gray-700 mb-1">
-            Код из письма
+            {t("auth", "resetCode")}
           </label>
           <input
             id="reset-code"
@@ -104,7 +106,7 @@ export function ResetPasswordPage() {
         </div>
         <div>
           <label htmlFor="reset-password" className="block text-sm font-medium text-gray-700 mb-1">
-            Новый пароль
+            {t("auth", "newPassword")}
           </label>
           <input
             id="reset-password"
@@ -121,13 +123,13 @@ export function ResetPasswordPage() {
           disabled={loading}
           className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 disabled:opacity-50"
         >
-          {loading ? "Сохранение…" : "Сменить пароль"}
+          {loading ? t("auth", "saving") : t("auth", "changePassword")}
         </button>
       </form>
       <p className="mt-4 text-sm text-gray-600">
-        Вспомнили пароль?{" "}
+        {t("auth", "rememberPassword")}{" "}
         <Link to="/login" className="text-indigo-600 hover:underline">
-          Войти
+          {t("auth", "signIn")}
         </Link>
       </p>
     </div>

@@ -2,11 +2,13 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../api/client";
+import { useI18n } from "../i18n/I18nContext";
 
 /**
  * Страница регистрации: email, пароль, имя, вызов register() и редирект.
  */
 export function RegisterPage() {
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -21,13 +23,13 @@ export function RegisterPage() {
       const res = await register(email, password, fullName);
       navigate("/verify-email", { state: { email: res.email }, replace: true });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Ошибка регистрации");
+      setError(err instanceof ApiError ? err.message : t("auth", "registerError"));
     }
   };
 
   return (
     <div className="max-w-md mx-auto">
-      <h1 className="text-2xl font-semibold mb-4">Регистрация</h1>
+      <h1 className="text-2xl font-semibold mb-4">{t("auth", "registerTitle")}</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="bg-red-50 text-red-700 px-3 py-2 rounded" role="alert">
@@ -36,7 +38,7 @@ export function RegisterPage() {
         )}
         <div>
           <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
-            Имя
+            {t("auth", "fullName")}
           </label>
           <input
             id="fullName"
@@ -62,7 +64,7 @@ export function RegisterPage() {
         </div>
         <div>
           <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-            Пароль
+            {t("auth", "password")}
           </label>
           <input
             id="password"
@@ -79,11 +81,11 @@ export function RegisterPage() {
           type="submit"
           className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700"
         >
-          Зарегистрироваться
+          {t("auth", "signUp")}
         </button>
       </form>
       <p className="mt-4 text-sm text-gray-600">
-        Уже есть аккаунт? <Link to="/login" className="text-indigo-600 hover:underline">Вход</Link>
+        {t("auth", "alreadyAccount")} <Link to="/login" className="text-indigo-600 hover:underline">{t("auth", "signIn")}</Link>
       </p>
     </div>
   );

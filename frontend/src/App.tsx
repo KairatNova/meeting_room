@@ -12,6 +12,9 @@ import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { AdminPage } from "./pages/AdminPage";
 import { ProfilePage } from "./pages/ProfilePage";
+import { AboutPage } from "./pages/AboutPage";
+import { HelpPage } from "./pages/HelpPage";
+import { HowToUsePage } from "./pages/HowToUsePage";
 
 /**
  * Защищённый маршрут: редирект на логин, если пользователь не авторизован.
@@ -46,6 +49,9 @@ function App() {
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/rooms" element={<RoomListPage />} />
         <Route path="/rooms/:roomId" element={<RoomDetailPage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/help" element={<HelpPage />} />
+        <Route path="/how-to-use" element={<HowToUsePage />} />
         <Route
           path="/my-bookings"
           element={

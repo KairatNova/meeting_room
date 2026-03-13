@@ -69,7 +69,7 @@ export function ProfilePage() {
       <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
         <p className="text-sm text-gray-600 mb-1">Email</p>
         <p className="font-medium text-gray-900">{user.email}</p>
-        <p className="text-sm text-gray-500 mt-2">Имя</p>
+        <p className="text-sm text-gray-500 mt-2">{t("profile", "fullName")}</p>
         <p className="font-medium text-gray-900">{user.full_name || user.display_name || "—"}</p>
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">

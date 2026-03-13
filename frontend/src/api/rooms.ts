@@ -1,6 +1,6 @@
 import { api } from "./client";
 import { ApiError } from "./client";
-import type { Room, RoomCreate, RoomUpdate } from "../types/api";
+import type { Room, RoomCreate, RoomUpdate, RoomReview, RoomReviewCreate } from "../types/api";
 
 const PREFIX = "/api/rooms";
 
@@ -9,7 +9,16 @@ async function getToken(): Promise<string | null> {
 }
 
 export const roomsApi = {
-  list: (params?: { capacity_min?: number; search?: string; amenities?: string; sort_by?: string }) =>
+  list: (params?: {
+    capacity_min?: number;
+    search?: string;
+    amenities?: string;
+    region?: string;
+    city?: string;
+    district?: string;
+    address?: string;
+    sort_by?: string;
+  }) =>
     api.get<Room[]>(PREFIX, { params: params as Record<string, string | number | boolean | undefined> }),
 
   get: (id: number) => api.get<Room>(`${PREFIX}/${id}`),
@@ -39,4 +48,8 @@ export const roomsApi = {
   /** Удалить фотографию комнаты. */
   deletePhoto: (roomId: number, photoId: number) =>
     api.delete<void>(`${PREFIX}/${roomId}/photos/${photoId}`),
+
+  listReviews: (roomId: number) => api.get<RoomReview[]>(`${PREFIX}/${roomId}/reviews`),
+  createReview: (roomId: number, data: RoomReviewCreate) =>
+    api.post<RoomReview>(`${PREFIX}/${roomId}/reviews`, data),
 };
