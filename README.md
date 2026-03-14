@@ -37,6 +37,13 @@ npm run dev
 
 Приложение: http://localhost:5173 (прокси на backend 8001 настроен в `vite.config.ts`).
 
+Для production можно указать backend URL через переменную окружения:
+
+```bash
+cp .env.example .env
+# VITE_API_URL=https://your-backend.up.railway.app
+```
+
 ### Первый админ
 
 После регистрации пользователя назначить его админом:
@@ -68,3 +75,8 @@ git push -u origin main
 ```
 
 Убедитесь, что в репозиторий не попадают `backend/.env`, `backend/.venv/`, `frontend/node_modules/` (см. корневой `.gitignore`).
+
+## Деплой и презентация
+
+- Инструкция деплоя в Railway: `DEPLOY_RAILWAY.md`
+- Понятный сценарий защиты для не-IT: `PRESENTATION_GUIDE.md`

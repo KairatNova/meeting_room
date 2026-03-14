@@ -45,14 +45,14 @@ export function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <header className="sticky top-0 z-40 bg-blue-900/95 backdrop-blur text-white shadow-md">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row sm:items-center items-start justify-between gap-3">
           <Link to="/" className="flex items-center gap-2">
             <span className="rounded-md bg-blue-700 px-2 py-1 text-sm font-semibold shadow-sm">
               MR
             </span>
             <span className="text-xl font-semibold tracking-tight">Meeting Rooms</span>
           </Link>
-          <nav className="flex items-center gap-2 sm:gap-3 text-sm">
+          <nav className="w-full sm:w-auto flex items-center justify-end gap-2 sm:gap-3 text-sm flex-wrap">
             {user ? (
               <>
                 <Link
@@ -77,7 +77,7 @@ export function Layout({ children }: LayoutProps) {
                     aria-expanded={dropdownOpen}
                     aria-haspopup="true"
                   >
-                    <span className="max-w-[160px] sm:max-w-[200px] truncate font-medium">
+                    <span className="max-w-[120px] sm:max-w-[200px] truncate font-medium">
                       {getUserDisplayName(user)}
                     </span>
                     <svg
@@ -130,7 +130,7 @@ export function Layout({ children }: LayoutProps) {
                 </Link>
               </>
             )}
-            <div className="ml-2 flex items-center gap-1 border border-blue-500/60 rounded-md overflow-hidden text-xs">
+            <div className="ml-auto sm:ml-2 flex items-center gap-1 border border-blue-500/60 rounded-md overflow-hidden text-xs shrink-0">
               <button
                 type="button"
                 onClick={() => setLang("ky")}

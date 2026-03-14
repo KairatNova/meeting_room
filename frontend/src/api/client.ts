@@ -4,7 +4,7 @@
  * Токен авторизации подставляется из localStorage.
  */
 
-const API_BASE = "";
+const API_BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, "");
 
 function getToken(): string | null {
   return localStorage.getItem("access_token");
@@ -30,7 +30,8 @@ async function request<T>(
   config: RequestConfig = {}
 ): Promise<T> {
   const { params, ...init } = config;
-  const url = new URL(path.startsWith("http") ? path : `${API_BASE}${path}`, window.location.origin);
+  const baseOrigin = API_BASE || window.location.origin;
+  const url = new URL(path.startsWith("http") ? path : `${API_BASE}${path}`, baseOrigin);
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined) url.searchParams.set(key, String(value));

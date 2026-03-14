@@ -75,6 +75,8 @@ export const translations: Record<Lang, Namespaces> = {
       sortCapacityAsc: "По вместимости (возр.)",
       sortCapacityDesc: "По вместимости (убыв.)",
       sortNewest: "Сначала новые",
+      showAdvancedFilters: "Показать расширенные фильтры",
+      hideAdvancedFilters: "Скрыть расширенные фильтры",
     },
     profile: {
       title: "Профиль",
@@ -288,6 +290,8 @@ export const translations: Record<Lang, Namespaces> = {
       sortCapacityAsc: "Capacity (low to high)",
       sortCapacityDesc: "Capacity (high to low)",
       sortNewest: "Newest first",
+      showAdvancedFilters: "Show advanced filters",
+      hideAdvancedFilters: "Hide advanced filters",
     },
     profile: {
       title: "Profile",
@@ -501,6 +505,8 @@ export const translations: Record<Lang, Namespaces> = {
       sortCapacityAsc: "Сыйымдуулук (өсүү)",
       sortCapacityDesc: "Сыйымдуулук (азаюу)",
       sortNewest: "Жаңысы биринчи",
+      showAdvancedFilters: "Кеңейтилген фильтрлерди көрсөтүү",
+      hideAdvancedFilters: "Кеңейтилген фильтрлерди жашыруу",
     },
     profile: {
       title: "Профиль",

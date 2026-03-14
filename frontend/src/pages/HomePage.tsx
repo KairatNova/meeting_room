@@ -30,6 +30,9 @@ export function HomePage() {
   const [loading, setLoading] = useState(false);
   const [filterError, setFilterError] = useState<string | null>(null);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+
+  const hasAdvancedFilters = Boolean(sortBy !== "name_asc" || region || city || district || address);
 
   useEffect(() => {
     if (!user) {
@@ -169,6 +172,7 @@ export function HomePage() {
     setDistrict("");
     setAddress("");
     setSortBy("name_asc");
+    setShowAdvancedFilters(false);
   };
 
   const handleSearchClick = () => {
@@ -246,60 +250,6 @@ export function HomePage() {
               className="field-input"
             />
           </div>
-          <div>
-            <label className="field-label">{t("home", "sorting")}</label>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="field-input"
-            >
-              <option value="name_asc">{t("home", "sortNameAsc")}</option>
-              <option value="name_desc">{t("home", "sortNameDesc")}</option>
-              <option value="capacity_asc">{t("home", "sortCapacityAsc")}</option>
-              <option value="capacity_desc">{t("home", "sortCapacityDesc")}</option>
-              <option value="newest">{t("home", "sortNewest")}</option>
-            </select>
-          </div>
-          <div>
-            <label className="field-label">{t("home", "region")}</label>
-            <input
-              type="text"
-              value={region}
-              onChange={(e) => setRegion(e.target.value)}
-              placeholder="Например, Чуйская"
-              className="field-input"
-            />
-          </div>
-          <div>
-            <label className="field-label">{t("home", "city")}</label>
-            <input
-              type="text"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              placeholder="Например, Бишкек"
-              className="field-input"
-            />
-          </div>
-          <div>
-            <label className="field-label">{t("home", "district")}</label>
-            <input
-              type="text"
-              value={district}
-              onChange={(e) => setDistrict(e.target.value)}
-              placeholder="Например, Октябрьский"
-              className="field-input"
-            />
-          </div>
-          <div>
-            <label className="field-label">{t("home", "address")}</label>
-            <input
-              type="text"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Например, ул. Логвиненко 1"
-              className="field-input"
-            />
-          </div>
           <div className="flex items-end gap-2">
             <button
               type="button"
@@ -313,6 +263,73 @@ export function HomePage() {
             </button>
           </div>
           </div>
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={() => setShowAdvancedFilters((v) => !v)}
+              className="text-sm font-medium text-blue-700 hover:underline"
+            >
+              {showAdvancedFilters ? t("home", "hideAdvancedFilters") : t("home", "showAdvancedFilters")}
+            </button>
+          </div>
+          {(showAdvancedFilters || hasAdvancedFilters) && (
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+              <div>
+                <label className="field-label">{t("home", "sorting")}</label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="field-input"
+                >
+                  <option value="name_asc">{t("home", "sortNameAsc")}</option>
+                  <option value="name_desc">{t("home", "sortNameDesc")}</option>
+                  <option value="capacity_asc">{t("home", "sortCapacityAsc")}</option>
+                  <option value="capacity_desc">{t("home", "sortCapacityDesc")}</option>
+                  <option value="newest">{t("home", "sortNewest")}</option>
+                </select>
+              </div>
+              <div>
+                <label className="field-label">{t("home", "region")}</label>
+                <input
+                  type="text"
+                  value={region}
+                  onChange={(e) => setRegion(e.target.value)}
+                  placeholder="Например, Чуйская"
+                  className="field-input"
+                />
+              </div>
+              <div>
+                <label className="field-label">{t("home", "city")}</label>
+                <input
+                  type="text"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="Например, Бишкек"
+                  className="field-input"
+                />
+              </div>
+              <div>
+                <label className="field-label">{t("home", "district")}</label>
+                <input
+                  type="text"
+                  value={district}
+                  onChange={(e) => setDistrict(e.target.value)}
+                  placeholder="Например, Октябрьский"
+                  className="field-input"
+                />
+              </div>
+              <div>
+                <label className="field-label">{t("home", "address")}</label>
+                <input
+                  type="text"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="Например, ул. Логвиненко 1"
+                  className="field-input"
+                />
+              </div>
+            </div>
+          )}
           {hasActiveFilters && (
             <div className="mt-3 flex flex-wrap gap-2">
               {activeFilterLabels.map((label) => (
