@@ -47,10 +47,18 @@ async function request<T>(
     (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
   }
 
-  const res = await fetch(url.toString(), {
-    ...init,
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await fetch(url.toString(), {
+      ...init,
+      headers,
+    });
+  } catch {
+    throw new ApiError(
+      0,
+      "Не удалось подключиться к серверу. Проверьте VITE_API_URL на frontend и CORS_ORIGINS на backend."
+    );
+  }
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
