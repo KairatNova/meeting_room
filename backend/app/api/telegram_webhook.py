@@ -4,16 +4,15 @@ Webhook для Telegram Bot: при /start TOKEN привязываем chat_id 
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Request
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload
 
 from app.core.dependencies import DbSession
 from app.models.user import User
 from app.models.telegram_pending_link import TelegramPendingLink
 from app.models.email_verification import EmailVerificationCode
 from app.config import get_settings
-from app.services.telegram import send_verification_code
+from app.services.telegram import send_verification_code, send_message
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -41,9 +40,11 @@ async def telegram_webhook(request: Request, db: DbSession) -> dict:
     if not text.startswith("/start"):
         return {"ok": True}
 
+    # /start TOKEN — токен может содержать - и _ (token_urlsafe)
     parts = text.split(maxsplit=1)
-    token = parts[1] if len(parts) > 1 else None
+    token = (parts[1].strip() if len(parts) > 1 else None) or ""
     if not token:
+        logger.info("Telegram /start without token")
         return {"ok": True}
 
     chat_id = message.get("chat", {}).get("id")
@@ -55,17 +56,13 @@ async def telegram_webhook(request: Request, db: DbSession) -> dict:
     if telegram_username:
         telegram_username = telegram_username.lower()
 
-    stmt = (
-        select(TelegramPendingLink)
-        .where(TelegramPendingLink.token == token)
-        .options(selectinload(TelegramPendingLink.user).selectinload(User.email_verification_code))
-    )
-    link = db.execute(stmt).scalar_one_or_none()
+    # Найти ссылку по токену (точное совпадение)
+    link = db.execute(select(TelegramPendingLink).where(TelegramPendingLink.token == token)).scalar_one_or_none()
     if not link:
-        logger.info("Telegram start with unknown token: %s", token[:8])
+        logger.info("Telegram start: unknown or expired token, prefix=%s", token[:12] if len(token) >= 12 else token)
         return {"ok": True}
 
-    user = link.user
+    user = db.execute(select(User).where(User.id == link.user_id)).scalar_one_or_none()
     if not user:
         return {"ok": True}
 
@@ -73,18 +70,35 @@ async def telegram_webhook(request: Request, db: DbSession) -> dict:
     user.telegram_chat_id = chat_id
     if telegram_username:
         user.telegram_username = telegram_username
+    db.add(user)
 
-    # Отправить код подтверждения в Telegram, если он ещё действует
-    verification = user.email_verification_code
-    if verification and verification.expires_at > datetime.now(timezone.utc):
+    # Код подтверждения — отдельным запросом, чтобы точно получить актуальную запись
+    verification = db.execute(
+        select(EmailVerificationCode)
+        .where(EmailVerificationCode.user_id == user.id)
+    ).scalar_one_or_none()
+
+    now = datetime.now(timezone.utc)
+    if verification and verification.expires_at > now:
         settings = get_settings()
-        send_verification_code(
+        ok = send_verification_code(
             chat_id,
             verification.code,
             settings.email_verification_code_expire_minutes,
         )
-        logger.info("Sent verification code to Telegram for user_id=%s", user.id)
+        if ok:
+            logger.info("Sent verification code to Telegram for user_id=%s chat_id=%s", user.id, chat_id)
+        else:
+            logger.warning("Failed to send verification code to Telegram for user_id=%s", user.id)
+    else:
+        if verification:
+            logger.info("Verification code expired for user_id=%s, not sending", user.id)
+        else:
+            logger.info("No verification code for user_id=%s (already verified?)", user.id)
+        send_message(
+            chat_id,
+            "⏱ Код подтверждения истёк или уже использован. Зарегистрируйтесь заново на сайте и откройте новую ссылку.",
+        )
 
-    db.add(user)
     db.commit()
     return {"ok": True}

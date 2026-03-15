@@ -144,28 +144,14 @@ def register(data: UserCreate, db: DbSession) -> RegisterResponse:
         db.add(verification)
     db.flush()
 
-    email_sent = False
-    try:
-        send_verification_email(user.email, code)
-        email_sent = True
-    except Exception as e:
-        if settings.email_fail_open:
-            logger.exception("SMTP unavailable, fallback to log verification code for %s", user.email)
-            logger.warning(
-                "[FALLBACK EMAIL] To: %s | Verification code: %s | Expires in %s minutes",
-                user.email,
-                code,
-                settings.email_verification_code_expire_minutes,
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Не удалось отправить письмо. Проверьте настройки SMTP или попробуйте позже.",
-            ) from e
-
+    # Ссылка на бота создаётся всегда при настроенном боте; код на почту не шлём, если пользователь указал Telegram — код придёт в Telegram после Start
     telegram_link: str | None = None
+    send_code_by_email = True  # по умолчанию шлём на почту
     if get_settings().telegram_bot_token and get_settings().telegram_bot_username:
         from app.services.telegram import generate_link_token
+        # Если пользователь указал Telegram — код будет только в Telegram (после нажатия Start по ссылке)
+        if data.telegram_username:
+            send_code_by_email = False
         link_token = generate_link_token()
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.email_verification_code_expire_minutes)
         existing_link = db.execute(
@@ -177,6 +163,26 @@ def register(data: UserCreate, db: DbSession) -> RegisterResponse:
         else:
             db.add(TelegramPendingLink(user_id=user.id, token=link_token, expires_at=expires_at))
         telegram_link = get_telegram_link(link_token)
+
+    email_sent = False
+    if send_code_by_email:
+        try:
+            send_verification_email(user.email, code)
+            email_sent = True
+        except Exception as e:
+            if settings.email_fail_open:
+                logger.exception("SMTP unavailable, fallback to log verification code for %s", user.email)
+                logger.warning(
+                    "[FALLBACK EMAIL] To: %s | Verification code: %s | Expires in %s minutes",
+                    user.email,
+                    code,
+                    settings.email_verification_code_expire_minutes,
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Не удалось отправить письмо. Проверьте настройки SMTP или попробуйте позже.",
+                ) from e
 
     try:
         db.commit()
@@ -190,14 +196,16 @@ def register(data: UserCreate, db: DbSession) -> RegisterResponse:
             ) from e
         raise
 
-    if email_sent and telegram_link:
+    if not send_code_by_email and telegram_link:
+        msg = "Код придёт в Telegram. Нажмите ссылку ниже, затем в боте нажмите «Start» — бот пришлёт вам код."
+    elif email_sent and telegram_link:
         msg = "Код подтверждения отправлен на почту. Для получения кода в Telegram откройте ссылку ниже."
     elif email_sent:
         msg = "На вашу почту отправлен код подтверждения. Введите его для активации аккаунта."
     elif telegram_link:
-        msg = "Письмо не удалось отправить. Откройте ссылку ниже в Telegram — там придёт код подтверждения."
+        msg = "Письмо не удалось отправить. Откройте ссылку ниже в Telegram, нажмите Start — там придёт код."
     else:
-        msg = "Код подтверждения создан. Письмо не удалось отправить (SMTP недоступен). Обратитесь в поддержку за кодом или настройте Telegram при следующей регистрации."
+        msg = "Код подтверждения создан. Письмо не удалось отправить (SMTP недоступен). Обратитесь в поддержку за кодом или укажите Telegram при следующей регистрации."
 
     return RegisterResponse(
         message=msg,

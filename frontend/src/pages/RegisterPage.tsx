@@ -84,7 +84,7 @@ export function RegisterPage() {
             className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
           />
           <p className="text-xs text-gray-500 mt-1">
-            Для получения кода в Telegram укажите ник и откройте ссылку из следующего шага
+            Если укажете ник — код придёт только в Telegram. На следующем шаге откройте ссылку и нажмите «Start» в боте.
           </p>
         </div>
         <div>
