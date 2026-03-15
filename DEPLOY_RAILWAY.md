@@ -16,12 +16,19 @@ Create **two Railway services** from the same GitHub repository.
    - `SECRET_KEY` = strong random secret (32+ chars)
    - `DEBUG` = `false`
    - `CORS_ORIGINS` = frontend URL, e.g. `https://your-frontend.up.railway.app`
-   - Optional SMTP:
+   - Email (recommended via Resend API):
+     - `EMAIL_PROVIDER=resend`
+     - `RESEND_API_KEY=<your_resend_api_key>`
+     - `RESEND_FROM_EMAIL=<verified_sender@your-domain.com>`
+   - Optional SMTP fallback:
+     - `EMAIL_PROVIDER=smtp`
      - `SMTP_HOST`
      - `SMTP_PORT`
      - `SMTP_USER`
      - `SMTP_PASSWORD`
      - `SMTP_FROM_EMAIL`
+   - Safety fallback:
+     - `EMAIL_FAIL_OPEN=true` (if provider unavailable, code goes to logs)
 5. Deploy.
 6. Verify:
    - `https://<backend-url>/health`

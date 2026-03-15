@@ -6,13 +6,14 @@ import smtplib
 import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+import httpx
 
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
 
-def _send_email(to_email: str, subject: str, text: str, html: str) -> None:
+def _send_email_smtp(to_email: str, subject: str, text: str, html: str) -> None:
     """Внутренняя утилита отправки email через SMTP."""
     settings = get_settings()
     if not settings.smtp_user or not settings.smtp_password:
@@ -36,6 +37,49 @@ def _send_email(to_email: str, subject: str, text: str, html: str) -> None:
         server.starttls()
         server.login(settings.smtp_user, settings.smtp_password)
         server.sendmail(settings.smtp_from_email, to_email, msg.as_string())
+
+
+def _send_email_resend(to_email: str, subject: str, text: str, html: str) -> None:
+    """Отправка email через Resend HTTP API."""
+    settings = get_settings()
+    if not settings.resend_api_key:
+        raise RuntimeError("RESEND_API_KEY is empty")
+
+    payload = {
+        "from": settings.resend_from_email,
+        "to": [to_email],
+        "subject": subject,
+        "text": text,
+        "html": html,
+    }
+    headers = {
+        "Authorization": f"Bearer {settings.resend_api_key}",
+        "Content-Type": "application/json",
+    }
+    with httpx.Client(timeout=settings.smtp_timeout_seconds) as client:
+        response = client.post("https://api.resend.com/emails", json=payload, headers=headers)
+        response.raise_for_status()
+
+
+def _send_email(to_email: str, subject: str, text: str, html: str) -> None:
+    """Унифицированная отправка email через выбранного провайдера."""
+    settings = get_settings()
+    provider = (settings.email_provider or "auto").strip().lower()
+    if provider not in {"auto", "smtp", "resend"}:
+        raise ValueError("EMAIL_PROVIDER must be one of: auto, smtp, resend")
+
+    if provider == "resend":
+        _send_email_resend(to_email, subject, text, html)
+        return
+    if provider == "smtp":
+        _send_email_smtp(to_email, subject, text, html)
+        return
+
+    # auto: prefer Resend if key exists, otherwise fallback to SMTP/dev log mode.
+    if settings.resend_api_key:
+        _send_email_resend(to_email, subject, text, html)
+    else:
+        _send_email_smtp(to_email, subject, text, html)
 
 
 def send_verification_email(to_email: str, code: str) -> None:
