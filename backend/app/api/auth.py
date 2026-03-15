@@ -108,7 +108,17 @@ def register(data: UserCreate, db: DbSession) -> RegisterResponse:
             is_verified=False,
         )
         db.add(user)
-        db.flush()
+        try:
+            db.flush()
+        except IntegrityError as e:
+            db.rollback()
+            err_msg = str(getattr(e, "orig", e)).lower()
+            if "unique" in err_msg or "duplicate key" in err_msg or "email" in err_msg:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Пользователь с таким email уже зарегистрирован",
+                ) from e
+            raise
 
     if data.telegram_username:
         user.telegram_username = _normalize_telegram(data.telegram_username)
@@ -170,7 +180,8 @@ def register(data: UserCreate, db: DbSession) -> RegisterResponse:
         db.commit()
     except IntegrityError as e:
         db.rollback()
-        if "ix_users_email" in str(e.orig) or "unique" in str(e.orig).lower():
+        err_msg = str(getattr(e, "orig", e)).lower()
+        if "unique" in err_msg or "duplicate key" in err_msg or "email" in err_msg:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Пользователь с таким email уже зарегистрирован",
