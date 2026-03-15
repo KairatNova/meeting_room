@@ -17,8 +17,8 @@ interface AuthState {
 
 interface AuthContextValue extends AuthState {
   login: (email: string, password: string) => Promise<void>;
-  /** Регистрация. Возвращает { message, email, telegram_link? }. */
-  register: (email: string, password: string, fullName: string, telegramUsername?: string | null) => Promise<RegisterResponse>;
+  /** Регистрация: имя, Telegram-ник, почта, пароль. Код приходит в Telegram. */
+  register: (fullName: string, telegramUsername: string, email: string, password: string) => Promise<RegisterResponse>;
   /** Шаг 1 входа с кодом: отправить код в Telegram/email. */
   loginRequest: (login: string, password: string) => Promise<LoginRequestResponse>;
   /** Шаг 2: ввести код и войти. */
@@ -67,16 +67,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(
     async (
-      email: string,
-      password: string,
       fullName: string,
-      telegramUsername?: string | null
+      telegramUsername: string,
+      email: string,
+      password: string
     ): Promise<RegisterResponse> => {
       const res = await authApi.register({
+        full_name: fullName,
+        telegram_username: telegramUsername,
         email,
         password,
-        full_name: fullName,
-        telegram_username: telegramUsername || undefined,
       });
       return res;
     },

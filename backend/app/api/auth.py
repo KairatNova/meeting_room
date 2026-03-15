@@ -35,7 +35,6 @@ from app.schemas.user import (
     LoginRequestResponse,
     LoginVerifyRequest,
 )
-from app.services.email import send_verification_email, send_password_reset_email
 from app.services.telegram import (
     get_telegram_link,
     send_verification_code as send_telegram_verification_code,
@@ -79,11 +78,20 @@ def _find_user_by_login(db: DbSession, login: str) -> User | None:
 @router.post("/auth/register", response_model=RegisterResponse)
 def register(data: UserCreate, db: DbSession) -> RegisterResponse:
     """
-    Регистрация: создаётся пользователь (is_verified=False), генерируется 6-значный код,
-    сохраняется в БД с временем жизни (по умолчанию 10 мин), код отправляется на email.
-    Пароль хранится в виде хэша. Email нормализуется (lowercase) для поиска и хранения.
+    Регистрация: имя, Telegram-ник, почта (только идентификатор), пароль.
+    Код подтверждения отправляется только в Telegram — пользователь открывает ссылку и нажимает Start.
+    На почту ничего не отправляется.
     """
+    settings_obj = get_settings()
+    if not settings_obj.telegram_bot_token or not settings_obj.telegram_bot_username:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Регистрация временно недоступна. Обратитесь в поддержку.",
+        )
+
     email_normalized = _normalize_email(data.email)
+    telegram_norm = _normalize_telegram(data.telegram_username)
+
     stmt = select(User).where(User.email == email_normalized)
     existing = db.execute(stmt).scalar_one_or_none()
     if existing:
@@ -92,18 +100,18 @@ def register(data: UserCreate, db: DbSession) -> RegisterResponse:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Пользователь с таким email уже зарегистрирован",
             )
-        # Повторная регистрация с тем же email: обновляем пароль и перезаписываем код
         user = existing
         user.hashed_password = hash_password(data.password)
         user.full_name = data.full_name.strip()
         user.display_name = data.full_name.strip()
-        # Старый код не удаляем: ниже переиспользуем запись и обновим её значения.
+        user.telegram_username = telegram_norm
     else:
         user = User(
             email=email_normalized,
             hashed_password=hash_password(data.password),
             full_name=data.full_name.strip(),
             display_name=data.full_name.strip(),
+            telegram_username=telegram_norm,
             is_admin=False,
             is_verified=False,
         )
@@ -120,15 +128,10 @@ def register(data: UserCreate, db: DbSession) -> RegisterResponse:
                 ) from e
             raise
 
-    if data.telegram_username:
-        user.telegram_username = _normalize_telegram(data.telegram_username)
-
     code = _generate_code(6)
     expires_at = datetime.now(timezone.utc) + timedelta(
         minutes=settings.email_verification_code_expire_minutes
     )
-    # У пользователя может уже быть код подтверждения (UNIQUE по user_id).
-    # В таком случае просто обновляем запись, чтобы избежать duplicate key.
     verification = db.execute(
         select(EmailVerificationCode).where(EmailVerificationCode.user_id == user.id)
     ).scalar_one_or_none()
@@ -136,53 +139,21 @@ def register(data: UserCreate, db: DbSession) -> RegisterResponse:
         verification.code = code
         verification.expires_at = expires_at
     else:
-        verification = EmailVerificationCode(
-            user_id=user.id,
-            code=code,
-            expires_at=expires_at,
-        )
-        db.add(verification)
+        db.add(EmailVerificationCode(user_id=user.id, code=code, expires_at=expires_at))
     db.flush()
 
-    # Ссылка на бота создаётся всегда при настроенном боте; код на почту не шлём, если пользователь указал Telegram — код придёт в Telegram после Start
-    telegram_link: str | None = None
-    send_code_by_email = True  # по умолчанию шлём на почту
-    if get_settings().telegram_bot_token and get_settings().telegram_bot_username:
-        from app.services.telegram import generate_link_token
-        # Если пользователь указал Telegram — код будет только в Telegram (после нажатия Start по ссылке)
-        if data.telegram_username:
-            send_code_by_email = False
-        link_token = generate_link_token()
-        expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.email_verification_code_expire_minutes)
-        existing_link = db.execute(
-            select(TelegramPendingLink).where(TelegramPendingLink.user_id == user.id)
-        ).scalar_one_or_none()
-        if existing_link:
-            existing_link.token = link_token
-            existing_link.expires_at = expires_at
-        else:
-            db.add(TelegramPendingLink(user_id=user.id, token=link_token, expires_at=expires_at))
-        telegram_link = get_telegram_link(link_token)
-
-    email_sent = False
-    if send_code_by_email:
-        try:
-            send_verification_email(user.email, code)
-            email_sent = True
-        except Exception as e:
-            if settings.email_fail_open:
-                logger.exception("SMTP unavailable, fallback to log verification code for %s", user.email)
-                logger.warning(
-                    "[FALLBACK EMAIL] To: %s | Verification code: %s | Expires in %s minutes",
-                    user.email,
-                    code,
-                    settings.email_verification_code_expire_minutes,
-                )
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="Не удалось отправить письмо. Проверьте настройки SMTP или попробуйте позже.",
-                ) from e
+    from app.services.telegram import generate_link_token
+    link_token = generate_link_token()
+    link_expires = datetime.now(timezone.utc) + timedelta(minutes=settings.email_verification_code_expire_minutes)
+    existing_link = db.execute(
+        select(TelegramPendingLink).where(TelegramPendingLink.user_id == user.id)
+    ).scalar_one_or_none()
+    if existing_link:
+        existing_link.token = link_token
+        existing_link.expires_at = link_expires
+    else:
+        db.add(TelegramPendingLink(user_id=user.id, token=link_token, expires_at=link_expires))
+    telegram_link = get_telegram_link(link_token)
 
     try:
         db.commit()
@@ -196,19 +167,8 @@ def register(data: UserCreate, db: DbSession) -> RegisterResponse:
             ) from e
         raise
 
-    if not send_code_by_email and telegram_link:
-        msg = "Код придёт в Telegram. Нажмите ссылку ниже, затем в боте нажмите «Start» — бот пришлёт вам код."
-    elif email_sent and telegram_link:
-        msg = "Код подтверждения отправлен на почту. Для получения кода в Telegram откройте ссылку ниже."
-    elif email_sent:
-        msg = "На вашу почту отправлен код подтверждения. Введите его для активации аккаунта."
-    elif telegram_link:
-        msg = "Письмо не удалось отправить. Откройте ссылку ниже в Telegram, нажмите Start — там придёт код."
-    else:
-        msg = "Код подтверждения создан. Письмо не удалось отправить (SMTP недоступен). Обратитесь в поддержку за кодом или укажите Telegram при следующей регистрации."
-
     return RegisterResponse(
-        message=msg,
+        message="Код подтверждения придёт в Telegram. Откройте ссылку ниже, нажмите «Start» в боте — бот пришлёт вам код. Введите его на следующем шаге.",
         email=user.email,
         telegram_link=telegram_link,
     )
@@ -217,8 +177,8 @@ def register(data: UserCreate, db: DbSession) -> RegisterResponse:
 @router.post("/auth/verify-email", response_model=VerifyEmailLoginResponse)
 def verify_email(data: VerifyEmailRequest, db: DbSession) -> VerifyEmailLoginResponse:
     """
-    Подтверждение email: проверка кода. Если код верный и не истёк — пользователь
-    активируется (is_verified=True), код удаляется из БД. После этого возможен вход.
+    Подтверждение по коду из Telegram. Email — для идентификации аккаунта.
+    Если код верный и не истёк — пользователь активируется (is_verified=True).
     """
     email_normalized = _normalize_email(data.email)
     stmt = (
@@ -295,7 +255,7 @@ def login(data: UserLogin, db: DbSession) -> Token:
     if not user.is_verified:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Подтвердите email. Проверьте почту и введите код подтверждения.",
+            detail="Подтвердите аккаунт: откройте ссылку из регистрации в Telegram и введите код.",
         )
     token = create_access_token(user.id)
     return Token(access_token=token, token_type="bearer")
@@ -304,8 +264,7 @@ def login(data: UserLogin, db: DbSession) -> Token:
 @router.post("/auth/login-request", response_model=LoginRequestResponse)
 def login_request(data: LoginRequest, db: DbSession) -> LoginRequestResponse:
     """
-    Запрос входа: email или Telegram-ник + пароль. Генерируется код и отправляется
-    в Telegram (если привязан) или на email. Далее пользователь вводит код в login-verify.
+    Запрос входа: email или Telegram-ник + пароль. Код отправляется только в Telegram.
     """
     user = _find_user_by_login(db, data.login)
     if not user:
@@ -321,7 +280,12 @@ def login_request(data: LoginRequest, db: DbSession) -> LoginRequestResponse:
     if not user.is_verified:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Подтвердите email. Проверьте почту или Telegram и введите код подтверждения.",
+            detail="Сначала подтвердите аккаунт: откройте ссылку из регистрации в Telegram и введите код.",
+        )
+    if not user.telegram_chat_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Код входа отправляется в Telegram. Откройте бота по ссылке из регистрации, нажмите Start, затем попробуйте войти снова.",
         )
 
     code = _generate_code(6)
@@ -338,26 +302,13 @@ def login_request(data: LoginRequest, db: DbSession) -> LoginRequestResponse:
         db.add(LoginVerificationCode(user_id=user.id, code=code, expires_at=expires_at))
     db.commit()
 
-    channel = "email"
-    if user.telegram_chat_id:
-        if send_telegram_verification_code(
-            user.telegram_chat_id, code, settings.email_verification_code_expire_minutes
-        ):
-            channel = "telegram"
-    if channel == "email":
-        try:
-            send_verification_email(user.email, code)
-        except Exception as e:
-            if not settings.email_fail_open:
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="Не удалось отправить код на почту.",
-                ) from e
-            logger.warning("SMTP failed for login code: %s", e)
+    send_telegram_verification_code(
+        user.telegram_chat_id, code, settings.email_verification_code_expire_minutes
+    )
 
     return LoginRequestResponse(
-        message="Код подтверждения отправлен. Введите его на следующем шаге.",
-        channel=channel,
+        message="Код отправлен в Telegram. Введите его на следующем шаге.",
+        channel="telegram",
     )
 
 
@@ -406,8 +357,7 @@ def login_verify(data: LoginVerifyRequest, db: DbSession) -> VerifyEmailLoginRes
 @router.post("/auth/forgot-password")
 def forgot_password(data: ForgotPasswordRequest, db: DbSession) -> dict[str, str]:
     """
-    Забыли пароль: укажите email или Telegram-ник. Код отправляется в Telegram
-    (если привязан) или на email. Ответ всегда 200, чтобы не раскрывать наличие пользователя.
+    Забыли пароль: укажите email или Telegram-ник. Код отправляется только в Telegram.
     """
     if not data.email and not data.telegram:
         raise HTTPException(
@@ -417,7 +367,7 @@ def forgot_password(data: ForgotPasswordRequest, db: DbSession) -> dict[str, str
     login = (data.email or data.telegram or "").strip()
     user = _find_user_by_login(db, login)
     if not user:
-        return {"message": "Если такой аккаунт зарегистрирован, на него отправлен код для сброса пароля."}
+        return {"message": "Если такой аккаунт зарегистрирован, код для сброса пароля отправлен в Telegram."}
 
     code = _generate_code(6)
     expires_at = datetime.now(timezone.utc) + timedelta(
@@ -439,19 +389,14 @@ def forgot_password(data: ForgotPasswordRequest, db: DbSession) -> dict[str, str
         send_telegram_password_reset_code(
             user.telegram_chat_id, code, settings.email_verification_code_expire_minutes
         )
-    else:
-        try:
-            send_password_reset_email(user.email, code)
-        except Exception:
-            pass
 
-    return {"message": "Если такой аккаунт зарегистрирован, на него отправлен код для сброса пароля."}
+    return {"message": "Если такой аккаунт зарегистрирован, код для сброса пароля отправлен в Telegram."}
 
 
 @router.post("/auth/reset-password")
 def reset_password(data: ResetPasswordRequest, db: DbSession) -> dict[str, str]:
     """
-    Сброс пароля по коду (из Telegram или письма). login — email или Telegram-ник.
+    Сброс пароля по коду из Telegram. login — email или Telegram-ник.
     """
     user = _find_user_by_login(db, data.login)
     if not user:

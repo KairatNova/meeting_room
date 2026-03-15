@@ -87,7 +87,7 @@ export function ResetPasswordPage() {
         )}
         {!showLoginField && (
           <p className="text-sm text-gray-600">
-            Код отправлен на <strong>{loginFromState}</strong>
+            {t("auth", "resetCodeSent")} ({t("auth", "resetAccountLabel")}: <strong>{loginFromState}</strong>)
           </p>
         )}
         <div>

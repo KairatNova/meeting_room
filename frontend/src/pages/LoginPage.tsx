@@ -108,7 +108,7 @@ export function LoginPage() {
             </div>
           )}
           <p className="text-sm text-gray-600">
-            Код отправлен в {channel === "telegram" ? "Telegram" : "на почту"}. Введите его ниже.
+            {t("auth", "loginHint")} Введите код ниже.
           </p>
           <div>
             <label htmlFor="code" className="block text-sm font-medium text-gray-700 mb-1">

@@ -22,10 +22,10 @@ export interface UserLogin {
 }
 
 export interface UserRegister {
+  full_name: string;
+  telegram_username: string;
   email: string;
   password: string;
-  full_name: string;
-  telegram_username?: string | null;
 }
 
 export interface TokenResponse {

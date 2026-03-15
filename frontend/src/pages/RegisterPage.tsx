@@ -5,14 +5,15 @@ import { ApiError } from "../api/client";
 import { useI18n } from "../i18n/I18nContext";
 
 /**
- * Страница регистрации: email, пароль, имя, вызов register() и редирект.
+ * Регистрация: имя, ник в Telegram, почта (только идентификатор), пароль.
+ * Код подтверждения приходит только в Telegram.
  */
 export function RegisterPage() {
   const { t } = useI18n();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [telegramUsername, setTelegramUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -21,12 +22,7 @@ export function RegisterPage() {
     e.preventDefault();
     setError(null);
     try {
-      const res = await register(
-        email,
-        password,
-        fullName,
-        telegramUsername.trim() || null
-      );
+      const res = await register(fullName, telegramUsername.trim(), email, password);
       navigate("/verify-email", {
         state: { email: res.email, telegram_link: res.telegram_link ?? null },
         replace: true,
@@ -39,6 +35,7 @@ export function RegisterPage() {
   return (
     <div className="max-w-md mx-auto">
       <h1 className="text-2xl font-semibold mb-4">{t("auth", "registerTitle")}</h1>
+      <p className="text-sm text-gray-600 mb-4">{t("auth", "registerHint")}</p>
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="bg-red-50 text-red-700 px-3 py-2 rounded" role="alert">
@@ -59,8 +56,23 @@ export function RegisterPage() {
           />
         </div>
         <div>
+          <label htmlFor="telegram" className="block text-sm font-medium text-gray-700 mb-1">
+            {t("auth", "telegramNick")}
+          </label>
+          <input
+            id="telegram"
+            type="text"
+            placeholder="@username"
+            value={telegramUsername}
+            onChange={(e) => setTelegramUsername(e.target.value)}
+            required
+            className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
+          />
+          <p className="text-xs text-gray-500 mt-1">{t("auth", "telegramHint")}</p>
+        </div>
+        <div>
           <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-            Email
+            {t("auth", "emailLabel")}
           </label>
           <input
             id="email"
@@ -70,22 +82,7 @@ export function RegisterPage() {
             required
             className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
           />
-        </div>
-        <div>
-          <label htmlFor="telegram" className="block text-sm font-medium text-gray-700 mb-1">
-            Telegram (ник, необязательно)
-          </label>
-          <input
-            id="telegram"
-            type="text"
-            placeholder="@username"
-            value={telegramUsername}
-            onChange={(e) => setTelegramUsername(e.target.value)}
-            className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Если укажете ник — код придёт только в Telegram. На следующем шаге откройте ссылку и нажмите «Start» в боте.
-          </p>
+          <p className="text-xs text-gray-500 mt-1">{t("auth", "emailHint")}</p>
         </div>
         <div>
           <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
@@ -100,7 +97,7 @@ export function RegisterPage() {
             minLength={8}
             className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
           />
-          <p className="text-xs text-gray-500 mt-1">Не менее 8 символов</p>
+          <p className="text-xs text-gray-500 mt-1">{t("auth", "passwordHint")}</p>
         </div>
         <button
           type="submit"

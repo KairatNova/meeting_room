@@ -7,16 +7,17 @@ from pydantic import BaseModel, EmailStr, Field
 
 
 class UserCreate(BaseModel):
-    """Тело запроса регистрации."""
+    """Тело запроса регистрации. Код подтверждения отправляется только в Telegram."""
 
-    email: EmailStr
-    password: str = Field(..., min_length=8)
-    full_name: str = Field(..., min_length=1, max_length=255)
-    telegram_username: str | None = Field(
-        default=None,
+    full_name: str = Field(..., min_length=1, max_length=255, description="Имя")
+    telegram_username: str = Field(
+        ...,
+        min_length=1,
         max_length=64,
-        description="Telegram @username (без @) — для привязки и получения кода в Telegram",
+        description="Ник в Telegram (без @) — на него придёт код подтверждения",
     )
+    email: EmailStr = Field(..., description="Почта только для идентификации аккаунта, письма не отправляются")
+    password: str = Field(..., min_length=8)
 
 
 class UserResponse(BaseModel):
@@ -51,10 +52,10 @@ class LoginRequest(BaseModel):
 
 
 class LoginRequestResponse(BaseModel):
-    """Ответ после запроса входа: куда отправлен код."""
+    """Ответ после запроса входа. Код отправляется только в Telegram."""
 
     message: str
-    channel: str = Field(..., description="telegram | email")
+    channel: str = Field(default="telegram", description="telegram")
 
 
 class LoginVerifyRequest(BaseModel):
@@ -103,7 +104,7 @@ class RegisterResponse(BaseModel):
 
 
 class VerifyEmailRequest(BaseModel):
-    """Тело запроса подтверждения email (страница ввода кода)."""
+    """Тело запроса подтверждения (страница ввода кода из Telegram)."""
 
     email: EmailStr
     verification_code: str = Field(
@@ -111,7 +112,7 @@ class VerifyEmailRequest(BaseModel):
         min_length=6,
         max_length=6,
         pattern=r"^\d{6}$",
-        description="6-значный код подтверждения из письма",
+        description="6-значный код из Telegram",
     )
 
 
@@ -145,9 +146,9 @@ class ForgotPasswordRequest(BaseModel):
 
 
 class ResetPasswordRequest(BaseModel):
-    """Сброс пароля по коду (из Telegram или письма)."""
+    """Сброс пароля по коду из Telegram."""
 
-    login: str = Field(..., min_length=1, description="Email или Telegram-ник — как при запросе сброса")
+    login: str = Field(..., min_length=1, description="Email или Telegram-ник")
     reset_code: str = Field(
         ...,
         min_length=6,

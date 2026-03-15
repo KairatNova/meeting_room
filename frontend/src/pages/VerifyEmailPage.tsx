@@ -24,7 +24,7 @@ export function VerifyEmailPage() {
     setError(null);
     const trimmedCode = code.replace(/\D/g, "").slice(0, 6);
     if (trimmedCode.length !== 6) {
-      setError("Введите 6-значный код из письма");
+      setError("Введите 6-значный код из Telegram");
       return;
     }
     if (!email.trim()) {
@@ -79,7 +79,7 @@ export function VerifyEmailPage() {
         )}
         {!showEmailField && (
           <p className="text-sm text-gray-600">
-            Код отправлен на <strong>{displayEmail}</strong>
+            Введите код для аккаунта <strong>{displayEmail}</strong>
           </p>
         )}
         <div>
@@ -108,14 +108,14 @@ export function VerifyEmailPage() {
       </form>
       {telegramLink && (
         <p className="mt-4 p-3 bg-blue-50 rounded text-sm text-gray-700">
-          Получить код в Telegram:{" "}
+          Код приходит в Telegram:{" "}
           <a href={telegramLink} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline font-medium">
             Открыть бота →
           </a>
         </p>
       )}
       <p className="mt-4 text-sm text-gray-600">
-        Не пришло письмо? Проверьте папку «Спам» или{" "}
+        Не пришёл код? Откройте ссылку выше в Telegram и нажмите Start, или{" "}
         <Link to="/register" className="text-indigo-600 hover:underline">зарегистрируйтесь снова</Link>.
       </p>
       <p className="mt-2 text-sm text-gray-600">
