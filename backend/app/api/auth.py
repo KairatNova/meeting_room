@@ -67,11 +67,7 @@ def register(data: UserCreate, db: DbSession) -> RegisterResponse:
         user.hashed_password = hash_password(data.password)
         user.full_name = data.full_name.strip()
         user.display_name = data.full_name.strip()
-        # Удаляем старый код, если есть
-        stmt_code = select(EmailVerificationCode).where(EmailVerificationCode.user_id == user.id)
-        old_code = db.execute(stmt_code).scalar_one_or_none()
-        if old_code:
-            db.delete(old_code)
+        # Старый код не удаляем: ниже переиспользуем запись и обновим её значения.
     else:
         user = User(
             email=email_normalized,
@@ -88,12 +84,21 @@ def register(data: UserCreate, db: DbSession) -> RegisterResponse:
     expires_at = datetime.now(timezone.utc) + timedelta(
         minutes=settings.email_verification_code_expire_minutes
     )
-    verification = EmailVerificationCode(
-        user_id=user.id,
-        code=code,
-        expires_at=expires_at,
-    )
-    db.add(verification)
+    # У пользователя может уже быть код подтверждения (UNIQUE по user_id).
+    # В таком случае просто обновляем запись, чтобы избежать duplicate key.
+    verification = db.execute(
+        select(EmailVerificationCode).where(EmailVerificationCode.user_id == user.id)
+    ).scalar_one_or_none()
+    if verification:
+        verification.code = code
+        verification.expires_at = expires_at
+    else:
+        verification = EmailVerificationCode(
+            user_id=user.id,
+            code=code,
+            expires_at=expires_at,
+        )
+        db.add(verification)
     db.flush()
 
     try:
