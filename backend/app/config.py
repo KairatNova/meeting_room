@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     # Время жизни кода подтверждения (минуты)
     email_verification_code_expire_minutes: int = 10
 
+    # --- Telegram (бот для кодов верификации и сброса пароля) ---
+    telegram_bot_token: str = ""
+    telegram_bot_username: str = ""  # без @, например MyMeetingBot
+
     # --- Загрузка файлов (фото комнат) ---
     upload_dir: str = "uploads"  # папка относительно корня проекта (backend/)
 
