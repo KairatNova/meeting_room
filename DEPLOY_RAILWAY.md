@@ -16,12 +16,7 @@ Create **two Railway services** from the same GitHub repository.
    - `SECRET_KEY` = strong random secret (32+ chars)
    - `DEBUG` = `false`
    - `CORS_ORIGINS` = frontend URL, e.g. `https://your-frontend.up.railway.app`
-   - Email (recommended via Resend API):
-     - `EMAIL_PROVIDER=resend`
-     - `RESEND_API_KEY=<your_resend_api_key>`
-     - `RESEND_FROM_EMAIL=<verified_sender@your-domain.com>`
-   - Optional SMTP fallback:
-     - `EMAIL_PROVIDER=smtp`
+   - SMTP:
      - `SMTP_HOST`
      - `SMTP_PORT`
      - `SMTP_USER`

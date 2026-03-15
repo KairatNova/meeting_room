@@ -15,6 +15,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        extra="ignore",
     )
 
     # --- App ---
@@ -43,11 +44,6 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_from_email: str = "noreply@example.com"
     smtp_timeout_seconds: int = 20
-    # Провайдер отправки email: auto | smtp | resend
-    email_provider: str = "auto"
-    # Resend API (https://resend.com)
-    resend_api_key: str = ""
-    resend_from_email: str = "Meeting Rooms <onboarding@resend.dev>"
     # Если SMTP недоступен (например в облаке), не ронять регистрацию:
     # код подтверждения будет выведен в логи сервера.
     email_fail_open: bool = True
