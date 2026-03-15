@@ -8,9 +8,9 @@ export function ResetPasswordPage() {
   const { t } = useI18n();
   const location = useLocation();
   const navigate = useNavigate();
-  const emailFromState = (location.state as { email?: string } | null)?.email;
+  const loginFromState = (location.state as { login?: string } | null)?.login;
 
-  const [email, setEmail] = useState(emailFromState ?? "");
+  const [login, setLogin] = useState(loginFromState ?? "");
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -21,8 +21,8 @@ export function ResetPasswordPage() {
     e.preventDefault();
     setError(null);
     setMessage(null);
-    if (!email.trim()) {
-      setError("Укажите email");
+    if (!login.trim()) {
+      setError("Укажите email или Telegram-ник");
       return;
     }
     if (!code.trim() || code.trim().length !== 6) {
@@ -36,7 +36,7 @@ export function ResetPasswordPage() {
     setLoading(true);
     try {
       const res = await authApi.resetPassword({
-        email: email.trim(),
+        login: login.trim(),
         reset_code: code.trim(),
         new_password: password,
       });
@@ -53,7 +53,7 @@ export function ResetPasswordPage() {
     }
   };
 
-  const showEmailField = !emailFromState;
+  const showLoginField = !loginFromState;
 
   return (
     <div className="max-w-md mx-auto">
@@ -69,24 +69,25 @@ export function ResetPasswordPage() {
             {error}
           </div>
         )}
-        {showEmailField && (
+        {showLoginField && (
           <div>
-            <label htmlFor="reset-email" className="block text-sm font-medium text-gray-700 mb-1">
-              Email
+            <label htmlFor="reset-login" className="block text-sm font-medium text-gray-700 mb-1">
+              Email или Telegram-ник
             </label>
             <input
-              id="reset-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              id="reset-login"
+              type="text"
+              placeholder="email@example.com или @username"
+              value={login}
+              onChange={(e) => setLogin(e.target.value)}
               required
               className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
         )}
-        {!showEmailField && (
+        {!showLoginField && (
           <p className="text-sm text-gray-600">
-            Код был отправлен на <strong>{emailFromState}</strong>
+            Код отправлен на <strong>{loginFromState}</strong>
           </p>
         )}
         <div>

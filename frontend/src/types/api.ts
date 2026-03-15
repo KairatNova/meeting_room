@@ -25,6 +25,7 @@ export interface UserRegister {
   email: string;
   password: string;
   full_name: string;
+  telegram_username?: string | null;
 }
 
 export interface TokenResponse {
@@ -32,10 +33,11 @@ export interface TokenResponse {
   token_type: string;
 }
 
-/** Ответ после регистрации: код отправлен на email. */
+/** Ответ после регистрации. */
 export interface RegisterResponse {
   message: string;
   email: string;
+  telegram_link?: string | null;
 }
 
 /** Короткая информация о пользователе в ответах авторизации. */
@@ -57,16 +59,35 @@ export interface MessageResponse {
   message: string;
 }
 
-/** Запрос на сброс пароля (забыли пароль). */
+/** Запрос на сброс пароля: email или telegram. */
 export interface ForgotPasswordRequest {
-  email: string;
+  email?: string | null;
+  telegram?: string | null;
 }
 
-/** Запрос смены пароля по коду. */
+/** Запрос смены пароля по коду (login = email или telegram). */
 export interface ResetPasswordRequest {
-  email: string;
+  login: string;
   reset_code: string;
   new_password: string;
+}
+
+/** Запрос входа с кодом (шаг 1: отправить код). */
+export interface LoginRequest {
+  login: string;
+  password: string;
+}
+
+/** Ответ после запроса входа: куда отправлен код. */
+export interface LoginRequestResponse {
+  message: string;
+  channel: "telegram" | "email";
+}
+
+/** Ввод кода входа (шаг 2). */
+export interface LoginVerifyRequest {
+  login: string;
+  verification_code: string;
 }
 
 export interface RoomPhoto {

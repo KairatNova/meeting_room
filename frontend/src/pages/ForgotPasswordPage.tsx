@@ -7,7 +7,7 @@ import { useI18n } from "../i18n/I18nContext";
 export function ForgotPasswordPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const [login, setLogin] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -17,13 +17,16 @@ export function ForgotPasswordPage() {
     setError(null);
     setMessage(null);
     setLoading(true);
+    const value = login.trim();
     try {
-      const res = await authApi.forgotPassword(email.trim());
+      const payload = value.includes("@")
+        ? { email: value, telegram: null }
+        : { email: null, telegram: value };
+      const res = await authApi.forgotPassword(payload);
       setMessage(res.message);
-      // Переход на страницу ввода кода и нового пароля, email уже подставлен
       navigate("/reset-password", {
         replace: true,
-        state: { email: email.trim() },
+        state: { login: value },
       });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("common", "error"));
@@ -50,14 +53,15 @@ export function ForgotPasswordPage() {
           </div>
         )}
         <div>
-          <label htmlFor="forgot-email" className="block text-sm font-medium text-gray-700 mb-1">
-            Email
+          <label htmlFor="forgot-login" className="block text-sm font-medium text-gray-700 mb-1">
+            Email или Telegram-ник
           </label>
           <input
-            id="forgot-email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            id="forgot-login"
+            type="text"
+            placeholder="email@example.com или @username"
+            value={login}
+            onChange={(e) => setLogin(e.target.value)}
             required
             className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
           />

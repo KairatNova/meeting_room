@@ -8,6 +8,10 @@ import type {
   VerifyEmailLoginResponse,
   MessageResponse,
   ResetPasswordRequest,
+  LoginRequest,
+  LoginRequestResponse,
+  LoginVerifyRequest,
+  ForgotPasswordRequest,
 } from "../types/api";
 
 const AUTH_PREFIX = "/api";
@@ -27,9 +31,17 @@ export const authApi = {
   login: (data: UserLogin) =>
     api.post<TokenResponse>(`${AUTH_PREFIX}/auth/login`, data),
 
-  /** Забыли пароль: отправка кода на email. */
-  forgotPassword: (email: string) =>
-    api.post<MessageResponse>(`${AUTH_PREFIX}/auth/forgot-password`, { email }),
+  /** Запрос входа: код отправляется в Telegram или на email. */
+  loginRequest: (data: LoginRequest) =>
+    api.post<LoginRequestResponse>(`${AUTH_PREFIX}/auth/login-request`, data),
+
+  /** Подтверждение входа по коду (после loginRequest). */
+  loginVerify: (data: LoginVerifyRequest) =>
+    api.post<VerifyEmailLoginResponse>(`${AUTH_PREFIX}/auth/login-verify`, data),
+
+  /** Забыли пароль: email или Telegram-ник. */
+  forgotPassword: (data: ForgotPasswordRequest) =>
+    api.post<MessageResponse>(`${AUTH_PREFIX}/auth/forgot-password`, data),
 
   /** Сброс пароля по коду. */
   resetPassword: (data: ResetPasswordRequest) =>

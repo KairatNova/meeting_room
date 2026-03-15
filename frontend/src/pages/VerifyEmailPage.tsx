@@ -12,7 +12,8 @@ export function VerifyEmailPage() {
   const { t } = useI18n();
   const location = useLocation();
   const navigate = useNavigate();
-  const emailFromState = (location.state as { email?: string } | null)?.email;
+  const emailFromState = (location.state as { email?: string; telegram_link?: string | null } | null)?.email;
+  const telegramLink = (location.state as { telegram_link?: string | null } | null)?.telegram_link;
   const [email, setEmail] = useState(emailFromState ?? "");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -105,6 +106,14 @@ export function VerifyEmailPage() {
           {loading ? t("auth", "verifying") : t("auth", "verifyCode")}
         </button>
       </form>
+      {telegramLink && (
+        <p className="mt-4 p-3 bg-blue-50 rounded text-sm text-gray-700">
+          Получить код в Telegram:{" "}
+          <a href={telegramLink} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline font-medium">
+            Открыть бота →
+          </a>
+        </p>
+      )}
       <p className="mt-4 text-sm text-gray-600">
         Не пришло письмо? Проверьте папку «Спам» или{" "}
         <Link to="/register" className="text-indigo-600 hover:underline">зарегистрируйтесь снова</Link>.

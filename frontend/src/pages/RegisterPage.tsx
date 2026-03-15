@@ -12,6 +12,7 @@ export function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [telegramUsername, setTelegramUsername] = useState("");
   const [error, setError] = useState<string | null>(null);
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -20,8 +21,16 @@ export function RegisterPage() {
     e.preventDefault();
     setError(null);
     try {
-      const res = await register(email, password, fullName);
-      navigate("/verify-email", { state: { email: res.email }, replace: true });
+      const res = await register(
+        email,
+        password,
+        fullName,
+        telegramUsername.trim() || null
+      );
+      navigate("/verify-email", {
+        state: { email: res.email, telegram_link: res.telegram_link ?? null },
+        replace: true,
+      });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("auth", "registerError"));
     }
@@ -61,6 +70,22 @@ export function RegisterPage() {
             required
             className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
           />
+        </div>
+        <div>
+          <label htmlFor="telegram" className="block text-sm font-medium text-gray-700 mb-1">
+            Telegram (ник, необязательно)
+          </label>
+          <input
+            id="telegram"
+            type="text"
+            placeholder="@username"
+            value={telegramUsername}
+            onChange={(e) => setTelegramUsername(e.target.value)}
+            className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Для получения кода в Telegram укажите ник и откройте ссылку из следующего шага
+          </p>
         </div>
         <div>
           <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">

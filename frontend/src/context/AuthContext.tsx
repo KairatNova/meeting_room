@@ -8,7 +8,7 @@ import {
 } from "react";
 import { authApi } from "../api/auth";
 import type { User } from "../types/api";
-import type { RegisterResponse } from "../types/api";
+import type { RegisterResponse, LoginRequestResponse } from "../types/api";
 
 interface AuthState {
   user: User | null;
@@ -17,8 +17,12 @@ interface AuthState {
 
 interface AuthContextValue extends AuthState {
   login: (email: string, password: string) => Promise<void>;
-  /** Регистрация: код отправляется на email. Возвращает { message, email } для редиректа на страницу ввода кода. */
-  register: (email: string, password: string, fullName: string) => Promise<RegisterResponse>;
+  /** Регистрация. Возвращает { message, email, telegram_link? }. */
+  register: (email: string, password: string, fullName: string, telegramUsername?: string | null) => Promise<RegisterResponse>;
+  /** Шаг 1 входа с кодом: отправить код в Telegram/email. */
+  loginRequest: (login: string, password: string) => Promise<LoginRequestResponse>;
+  /** Шаг 2: ввести код и войти. */
+  loginVerify: (login: string, code: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -62,11 +66,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const register = useCallback(
-    async (email: string, password: string, fullName: string): Promise<RegisterResponse> => {
-      const res = await authApi.register({ email, password, full_name: fullName });
+    async (
+      email: string,
+      password: string,
+      fullName: string,
+      telegramUsername?: string | null
+    ): Promise<RegisterResponse> => {
+      const res = await authApi.register({
+        email,
+        password,
+        full_name: fullName,
+        telegram_username: telegramUsername || undefined,
+      });
       return res;
     },
     []
+  );
+
+  const loginRequest = useCallback(async (login: string, password: string) => {
+    return authApi.loginRequest({ login: login.trim(), password });
+  }, []);
+
+  const loginVerify = useCallback(
+    async (login: string, code: string) => {
+      const res = await authApi.loginVerify({
+        login: login.trim(),
+        verification_code: code.trim(),
+      });
+      localStorage.setItem(TOKEN_KEY, res.access_token);
+      setState({
+        user: {
+          id: res.user.id,
+          email: res.user.email,
+          full_name: res.user.name,
+          display_name: res.user.name,
+          is_admin: false,
+        },
+        loading: false,
+      });
+      await loadUser();
+    },
+    [loadUser]
   );
 
   const logout = useCallback(() => {
@@ -78,6 +118,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ...state,
     login,
     register,
+    loginRequest,
+    loginVerify,
     logout,
   };
 

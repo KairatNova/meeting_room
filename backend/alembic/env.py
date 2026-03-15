@@ -12,7 +12,17 @@ from alembic import op
 
 # Импорт всех моделей, чтобы Base.metadata содержал таблицы
 from app.database import Base
-from app.models import User, Room, Booking, EmailVerificationCode, RoomPhoto, RoomReview  # noqa: F401
+from app.models import (  # noqa: F401
+    User,
+    Room,
+    Booking,
+    EmailVerificationCode,
+    PasswordResetCode,
+    RoomPhoto,
+    RoomReview,
+    TelegramPendingLink,
+    LoginVerificationCode,
+)
 from app.config import get_settings
 
 config = context.config

@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
-from app.api import auth, rooms, bookings, admin
+from app.api import auth, rooms, bookings, admin, telegram_webhook
 
 
 @asynccontextmanager
@@ -48,6 +48,7 @@ def create_app() -> FastAPI:
 
     # Подключение роутеров (префикс /api для единообразия)
     app.include_router(auth.router, prefix="/api", tags=["Auth"])
+    app.include_router(telegram_webhook.router, prefix="/api", tags=["Telegram"])
     app.include_router(rooms.router, prefix="/api/rooms", tags=["Rooms"])
     app.include_router(bookings.router, prefix="/api/bookings", tags=["Bookings"])
     app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])

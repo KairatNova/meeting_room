@@ -12,6 +12,11 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8)
     full_name: str = Field(..., min_length=1, max_length=255)
+    telegram_username: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Telegram @username (без @) — для привязки и получения кода в Telegram",
+    )
 
 
 class UserResponse(BaseModel):
@@ -32,10 +37,37 @@ class UserResponse(BaseModel):
 
 
 class UserLogin(BaseModel):
-    """Тело запроса входа."""
+    """Тело запроса входа (email + пароль, без кода)."""
 
     email: EmailStr
     password: str
+
+
+class LoginRequest(BaseModel):
+    """Запрос на вход: email или Telegram-ник + пароль. Код придёт в Telegram или на email."""
+
+    login: str = Field(..., min_length=1, description="Email или @username Telegram")
+    password: str = Field(..., min_length=1)
+
+
+class LoginRequestResponse(BaseModel):
+    """Ответ после запроса входа: куда отправлен код."""
+
+    message: str
+    channel: str = Field(..., description="telegram | email")
+
+
+class LoginVerifyRequest(BaseModel):
+    """Ввод кода подтверждения входа (после login-request)."""
+
+    login: str = Field(..., min_length=1)
+    verification_code: str = Field(
+        ...,
+        min_length=6,
+        max_length=6,
+        pattern=r"^\d{6}$",
+        description="6-значный код из Telegram или письма",
+    )
 
 
 class UserProfileUpdate(BaseModel):
@@ -60,10 +92,14 @@ class Token(BaseModel):
 
 
 class RegisterResponse(BaseModel):
-    """Ответ после успешной отправки формы регистрации (код отправлен на email)."""
+    """Ответ после успешной отправки формы регистрации."""
 
-    message: str = "На вашу почту отправлен код подтверждения. Введите его для активации аккаунта."
+    message: str
     email: str
+    telegram_link: str | None = Field(
+        default=None,
+        description="Ссылка t.me/bot?start=TOKEN — откройте в Telegram для получения кода",
+    )
 
 
 class VerifyEmailRequest(BaseModel):
@@ -102,15 +138,16 @@ class VerifyEmailLoginResponse(BaseModel):
 
 
 class ForgotPasswordRequest(BaseModel):
-    """Запрос на сброс пароля (забыли пароль)."""
+    """Запрос на сброс пароля: email или Telegram-ник."""
 
-    email: EmailStr
+    email: str | None = Field(default=None, description="Email для поиска пользователя")
+    telegram: str | None = Field(default=None, description="Telegram @username или номер для поиска")
 
 
 class ResetPasswordRequest(BaseModel):
-    """Сброс пароля по коду из письма."""
+    """Сброс пароля по коду (из Telegram или письма)."""
 
-    email: EmailStr
+    login: str = Field(..., min_length=1, description="Email или Telegram-ник — как при запросе сброса")
     reset_code: str = Field(
         ...,
         min_length=6,

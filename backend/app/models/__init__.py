@@ -9,5 +9,17 @@ from app.models.email_verification import EmailVerificationCode
 from app.models.password_reset import PasswordResetCode
 from app.models.room_photo import RoomPhoto
 from app.models.room_review import RoomReview
+from app.models.telegram_pending_link import TelegramPendingLink
+from app.models.login_verification_code import LoginVerificationCode
 
-__all__ = ["User", "Room", "Booking", "EmailVerificationCode", "PasswordResetCode", "RoomPhoto", "RoomReview"]
+__all__ = [
+    "User",
+    "Room",
+    "Booking",
+    "EmailVerificationCode",
+    "PasswordResetCode",
+    "RoomPhoto",
+    "RoomReview",
+    "TelegramPendingLink",
+    "LoginVerificationCode",
+]
