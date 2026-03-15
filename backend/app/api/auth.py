@@ -3,6 +3,7 @@
 """
 import random
 import string
+import logging
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -33,6 +34,7 @@ from app.services.email import send_verification_email, send_password_reset_emai
 
 router = APIRouter()
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 def _generate_code(length: int = 6) -> str:
@@ -97,10 +99,19 @@ def register(data: UserCreate, db: DbSession) -> RegisterResponse:
     try:
         send_verification_email(user.email, code)
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Не удалось отправить письмо. Проверьте настройки SMTP или попробуйте позже.",
-        ) from e
+        if settings.email_fail_open:
+            logger.exception("SMTP unavailable, fallback to log verification code for %s", user.email)
+            logger.warning(
+                "[FALLBACK EMAIL] To: %s | Verification code: %s | Expires in %s minutes",
+                user.email,
+                code,
+                settings.email_verification_code_expire_minutes,
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Не удалось отправить письмо. Проверьте настройки SMTP или попробуйте позже.",
+            ) from e
 
     try:
         db.commit()
