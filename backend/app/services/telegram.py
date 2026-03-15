@@ -36,11 +36,16 @@ def send_message(chat_id: int, text: str) -> bool:
             timeout=10.0,
         )
         if r.status_code != 200:
-            logger.warning("Telegram API error: %s %s", r.status_code, r.text)
+            logger.warning(
+                "Telegram sendMessage error: status=%s body=%s chat_id=%s",
+                r.status_code,
+                r.text[:500] if r.text else "",
+                chat_id,
+            )
             return False
         return True
     except Exception as e:
-        logger.exception("Failed to send Telegram message: %s", e)
+        logger.exception("Telegram sendMessage exception chat_id=%s: %s", chat_id, e)
         return False
 
 

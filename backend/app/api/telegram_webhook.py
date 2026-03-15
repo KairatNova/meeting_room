@@ -43,21 +43,30 @@ async def telegram_webhook(request: Request, db: DbSession) -> dict:
 
     message = body.get("message") or body.get("edited_message")
     if not message:
+        logger.info("Telegram webhook: no message in update")
         return {"ok": True}
 
     text = (message.get("text") or "").strip()
     if not text.startswith("/start"):
+        logger.info("Telegram webhook: text does not start with /start, text_len=%s", len(text))
         return {"ok": True}
 
-    # /start TOKEN — токен может содержать - и _ (token_urlsafe). Telegram передаёт как текст после пробела.
+    # /start TOKEN — Telegram: только A-Za-z0-9_-, до 64 символов. Мы используем token_urlsafe(32) ~43 символа.
     parts = text.split(maxsplit=1)
     token = (parts[1].strip() if len(parts) > 1 else None) or ""
     if not token:
-        logger.warning("Telegram /start without token — пользователь открыл бота без ссылки с кодом. Нужна ссылка из письма регистрации.")
+        logger.warning(
+            "Telegram /start without token — откройте именно ссылку со страницы после регистрации (с кнопкой «Открыть бота»), а не поиск бота по имени."
+        )
         return {"ok": True}
+
+    # Убираем возможные лишние символы (пробелы, переносы)
+    token = token.strip()
+    logger.info("Telegram /start token_len=%s token_prefix=%r", len(token), token[:20] if len(token) >= 20 else token)
 
     chat_id = message.get("chat", {}).get("id")
     if chat_id is None:
+        logger.warning("Telegram webhook: no chat_id in message")
         return {"ok": True}
 
     from_user = message.get("from") or {}
@@ -68,15 +77,21 @@ async def telegram_webhook(request: Request, db: DbSession) -> dict:
     # Найти ссылку по токену (точное совпадение)
     link = db.execute(select(TelegramPendingLink).where(TelegramPendingLink.token == token)).scalar_one_or_none()
     if not link:
+        # Telegram обрезает start-параметр до 64 символов — наш токен ~43, ок.
+        from sqlalchemy import func
+        count = db.execute(select(func.count()).select_from(TelegramPendingLink)).scalar() or 0
         logger.warning(
-            "Telegram start: token не найден в БД (истёк или неверная ссылка). token_prefix=%s len=%s",
-            token[:16] if len(token) >= 16 else token,
+            "Telegram start: token не найден в БД. token_len=%s token_prefix=%r total_links_in_db=%s",
             len(token),
+            token[:24] if len(token) >= 24 else token,
+            count,
         )
         return {"ok": True}
 
+    logger.info("Telegram: link found user_id=%s", link.user_id)
     user = db.execute(select(User).where(User.id == link.user_id)).scalar_one_or_none()
     if not user:
+        logger.warning("Telegram: user not found for link user_id=%s", link.user_id)
         return {"ok": True}
 
     # Привязка Telegram к пользователю
@@ -85,29 +100,38 @@ async def telegram_webhook(request: Request, db: DbSession) -> dict:
         user.telegram_username = telegram_username
     db.add(user)
 
-    # Код подтверждения — отдельным запросом, чтобы точно получить актуальную запись
+    # Код подтверждения — отдельным запросом
     verification = db.execute(
-        select(EmailVerificationCode)
-        .where(EmailVerificationCode.user_id == user.id)
+        select(EmailVerificationCode).where(EmailVerificationCode.user_id == user.id)
     ).scalar_one_or_none()
 
     now = datetime.now(timezone.utc)
     if verification and verification.expires_at > now:
         settings = get_settings()
+        logger.info(
+            "Telegram: sending code to chat_id=%s user_id=%s expire_min=%s",
+            chat_id,
+            user.id,
+            settings.email_verification_code_expire_minutes,
+        )
         ok = send_verification_code(
             chat_id,
             verification.code,
             settings.email_verification_code_expire_minutes,
         )
         if ok:
-            logger.info("Sent verification code to Telegram for user_id=%s chat_id=%s", user.id, chat_id)
+            logger.info("Telegram: verification code sent successfully user_id=%s chat_id=%s", user.id, chat_id)
         else:
-            logger.warning("Failed to send verification code to Telegram for user_id=%s", user.id)
+            logger.warning(
+                "Telegram: send_verification_code returned False user_id=%s chat_id=%s (проверьте TELEGRAM_BOT_TOKEN и логи sendMessage)",
+                user.id,
+                chat_id,
+            )
     else:
         if verification:
-            logger.info("Verification code expired for user_id=%s, not sending", user.id)
+            logger.info("Telegram: verification code expired user_id=%s expires_at=%s", user.id, verification.expires_at)
         else:
-            logger.info("No verification code for user_id=%s (already verified?)", user.id)
+            logger.info("Telegram: no verification code for user_id=%s", user.id)
         send_message(
             chat_id,
             "⏱ Код подтверждения истёк или уже использован. Зарегистрируйтесь заново на сайте и откройте новую ссылку.",
