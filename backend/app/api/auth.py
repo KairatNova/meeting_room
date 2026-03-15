@@ -144,8 +144,10 @@ def register(data: UserCreate, db: DbSession) -> RegisterResponse:
         db.add(verification)
     db.flush()
 
+    email_sent = False
     try:
         send_verification_email(user.email, code)
+        email_sent = True
     except Exception as e:
         if settings.email_fail_open:
             logger.exception("SMTP unavailable, fallback to log verification code for %s", user.email)
@@ -188,9 +190,14 @@ def register(data: UserCreate, db: DbSession) -> RegisterResponse:
             ) from e
         raise
 
-    msg = "На вашу почту отправлен код подтверждения. Введите его для активации аккаунта."
-    if telegram_link:
+    if email_sent and telegram_link:
         msg = "Код подтверждения отправлен на почту. Для получения кода в Telegram откройте ссылку ниже."
+    elif email_sent:
+        msg = "На вашу почту отправлен код подтверждения. Введите его для активации аккаунта."
+    elif telegram_link:
+        msg = "Письмо не удалось отправить. Откройте ссылку ниже в Telegram — там придёт код подтверждения."
+    else:
+        msg = "Код подтверждения создан. Письмо не удалось отправить (SMTP недоступен). Обратитесь в поддержку за кодом или настройте Telegram при следующей регистрации."
 
     return RegisterResponse(
         message=msg,
