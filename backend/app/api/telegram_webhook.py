@@ -18,6 +18,12 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+@router.get("/telegram/webhook")
+async def telegram_webhook_health() -> dict:
+    """Проверка доступности URL для setWebhook (Telegram требует HTTPS и 200)."""
+    return {"ok": True, "message": "Set webhook: POST to this URL from Telegram. Use setWebhook with url=https://YOUR_DOMAIN/api/telegram/webhook"}
+
+
 @router.post("/telegram/webhook")
 async def telegram_webhook(request: Request, db: DbSession) -> dict:
     """
@@ -32,6 +38,9 @@ async def telegram_webhook(request: Request, db: DbSession) -> dict:
         logger.warning("Telegram webhook invalid JSON: %s", e)
         return {"ok": True}
 
+    update_id = body.get("update_id")
+    logger.info("Telegram webhook received update_id=%s", update_id)
+
     message = body.get("message") or body.get("edited_message")
     if not message:
         return {"ok": True}
@@ -40,11 +49,11 @@ async def telegram_webhook(request: Request, db: DbSession) -> dict:
     if not text.startswith("/start"):
         return {"ok": True}
 
-    # /start TOKEN — токен может содержать - и _ (token_urlsafe)
+    # /start TOKEN — токен может содержать - и _ (token_urlsafe). Telegram передаёт как текст после пробела.
     parts = text.split(maxsplit=1)
     token = (parts[1].strip() if len(parts) > 1 else None) or ""
     if not token:
-        logger.info("Telegram /start without token")
+        logger.warning("Telegram /start without token — пользователь открыл бота без ссылки с кодом. Нужна ссылка из письма регистрации.")
         return {"ok": True}
 
     chat_id = message.get("chat", {}).get("id")
@@ -59,7 +68,11 @@ async def telegram_webhook(request: Request, db: DbSession) -> dict:
     # Найти ссылку по токену (точное совпадение)
     link = db.execute(select(TelegramPendingLink).where(TelegramPendingLink.token == token)).scalar_one_or_none()
     if not link:
-        logger.info("Telegram start: unknown or expired token, prefix=%s", token[:12] if len(token) >= 12 else token)
+        logger.warning(
+            "Telegram start: token не найден в БД (истёк или неверная ссылка). token_prefix=%s len=%s",
+            token[:16] if len(token) >= 16 else token,
+            len(token),
+        )
         return {"ok": True}
 
     user = db.execute(select(User).where(User.id == link.user_id)).scalar_one_or_none()
