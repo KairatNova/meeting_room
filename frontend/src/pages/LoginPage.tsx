@@ -15,7 +15,6 @@ export function LoginPage() {
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [step, setStep] = useState<"credentials" | "code">("credentials");
-  const [channel, setChannel] = useState<"telegram" | "email">("email");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const { loginRequest, loginVerify } = useAuth();
@@ -25,8 +24,7 @@ export function LoginPage() {
     e.preventDefault();
     setError(null);
     try {
-      const res = await loginRequest(login, password);
-      setChannel(res.channel);
+      await loginRequest(login, password);
       setStep("code");
     } catch (err) {
       if (err instanceof ApiError && err.status === 403 && err.message.includes("Подтвердите")) {
