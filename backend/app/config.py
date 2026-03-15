@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     smtp_user: str = ""
     smtp_password: str = ""
     smtp_from_email: str = "noreply@example.com"
+    smtp_timeout_seconds: int = 20
     # Время жизни кода подтверждения (минуты)
     email_verification_code_expire_minutes: int = 10
 

@@ -3,10 +3,13 @@
 Используется для отправки кода подтверждения при регистрации.
 """
 import smtplib
+import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 from app.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 def _send_email(to_email: str, subject: str, text: str, html: str) -> None:
@@ -25,7 +28,11 @@ def _send_email(to_email: str, subject: str, text: str, html: str) -> None:
     msg.attach(MIMEText(text, "plain"))
     msg.attach(MIMEText(html, "html"))
 
-    with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as server:
+    with smtplib.SMTP(
+        settings.smtp_host,
+        settings.smtp_port,
+        timeout=settings.smtp_timeout_seconds,
+    ) as server:
         server.starttls()
         server.login(settings.smtp_user, settings.smtp_password)
         server.sendmail(settings.smtp_from_email, to_email, msg.as_string())
@@ -46,7 +53,11 @@ def send_verification_email(to_email: str, code: str) -> None:
     <p>Ваш код подтверждения: <strong>{code}</strong></p>
     <p>Код действителен {settings.email_verification_code_expire_minutes} минут.</p>
     """
-    _send_email(to_email, subject, text, html)
+    try:
+        _send_email(to_email, subject, text, html)
+    except Exception:
+        logger.exception("SMTP error while sending verification email to %s", to_email)
+        raise
 
 
 def send_password_reset_email(to_email: str, code: str) -> None:
@@ -63,4 +74,8 @@ def send_password_reset_email(to_email: str, code: str) -> None:
     <p>Ваш код для сброса пароля: <strong>{code}</strong></p>
     <p>Код действителен {settings.email_verification_code_expire_minutes} минут.</p>
     """
-    _send_email(to_email, subject, text, html)
+    try:
+        _send_email(to_email, subject, text, html)
+    except Exception:
+        logger.exception("SMTP error while sending password reset email to %s", to_email)
+        raise
