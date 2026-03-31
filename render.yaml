@@ -22,7 +22,7 @@ services:
         value: "false"
       # IMPORTANT: update after frontend deploy if you rename the service.
       - key: CORS_ORIGINS
-        value: https://meeting-room-frontend.onrender.com
+        value: https://meeting-room-frontend-zb0p.onrender.com
       # Free tier has no persistent disks; uploads will be ephemeral.
       - key: UPLOAD_DIR
         value: uploads
@@ -36,7 +36,7 @@ services:
     envVars:
       # IMPORTANT: update if you rename the backend service.
       - key: VITE_API_URL
-        value: https://meeting-room-backend.onrender.com
+        value: https://meeting-room-backend-8exb.onrender.com
     routes:
       - type: rewrite
         source: /*
