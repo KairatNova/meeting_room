@@ -79,4 +79,5 @@ git push -u origin main
 ## Деплой и презентация
 
 - Инструкция деплоя в Railway: `DEPLOY_RAILWAY.md`
+- Инструкция деплоя в Render: `DEPLOY_RENDER.md`
 - Понятный сценарий защиты для не-IT: `PRESENTATION_GUIDE.md`
