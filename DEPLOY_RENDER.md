@@ -1,76 +1,96 @@
 # Deploy to Render (Backend + Frontend)
 
-Этот репозиторий — монорепо:
-- `backend/` — FastAPI API
-- `frontend/` — React (Vite) SPA
+Этот файл фиксирует текущий процесс деплоя и все изменения, сделанные при переходе с Railway на Render.
 
-Ниже — деплой через **Render Blueprint** (`render.yaml`) в корне репозитория.
+## 1) Что изменили (Railway -> Render)
 
-## 0) Перед стартом
+- Добавлен `render.yaml` (Render Blueprint) в корень репозитория.
+- Деплой переведен с Railway на Render Blueprints.
+- Инфраструктура поднимается из одного файла:
+  - `meeting-room-db` (PostgreSQL),
+  - `meeting-room-backend` (FastAPI web service),
+  - `meeting-room-frontend` (Static site через `env: static`).
+- Исправлен формат static-сервиса: `type: web` + `env: static`.
+- Для free tier убран `disk` (persistent disk недоступен на бесплатном плане).
+- `UPLOAD_DIR` для backend установлен в `uploads` (эпhemeral storage на free tier).
 
-1) Запушьте проект в GitHub.
-2) Убедитесь, что вы не коммитите секреты (`backend/.env`, `frontend/.env`).
+## 2) Текущие env-переменные
 
-## 1) Deploy через Blueprint
-
-1) В Render откройте **Blueprints** → **New Blueprint Instance**.
-2) Выберите ваш GitHub repo.
-3) Render прочитает `render.yaml` и создаст:
-   - базу `meeting-room-db` (Postgres)
-   - сервис `meeting-room-backend` (FastAPI)
-   - сервис `meeting-room-frontend` (Static site)
-
-## 2) Переменные окружения (важно)
+Ниже актуальные значения для текущих Render URL.
 
 ### Backend (`meeting-room-backend`)
 
-В `render.yaml` уже задано:
-- `DATABASE_URL` — берётся из Render Postgres
-- `SECRET_KEY` — генерируется автоматически
+- `DATABASE_URL` — из Render DB (`fromDatabase`)
+- `SECRET_KEY` — `generateValue: true`
 - `DEBUG=false`
-- `UPLOAD_DIR=/var/data/uploads` (папка на диске Render)
-- `CORS_ORIGINS` — **нужно проверить после деплоя фронта**
-
-После первого деплоя фронта обновите `CORS_ORIGINS` на реальный домен фронта, например:
-
-```text
-https://meeting-room-frontend.onrender.com
-```
-
-Если вы переименовали сервисы, домены тоже изменятся.
+- `CORS_ORIGINS=https://meeting-room-frontend-zb0p.onrender.com`
+- `UPLOAD_DIR=uploads`
+- для регистрации/подтверждения через Telegram обязательно:
+  - `TELEGRAM_BOT_TOKEN=<your_token>`
+  - `TELEGRAM_BOT_USERNAME=<bot_username_without_@>`
 
 ### Frontend (`meeting-room-frontend`)
 
-Задайте переменную:
-- `VITE_API_URL` — базовый URL бэкенда (без хвоста `/api`), например:
+- `VITE_API_URL=https://meeting-room-backend-8exb.onrender.com`
 
-```text
-https://meeting-room-backend.onrender.com
-```
+Важно: `VITE_API_URL` указывается без `/api` в конце.
 
-Фронт ходит на `${VITE_API_URL}/api/...`.
+## 3) Как работает Blueprint
 
-## 3) Миграции БД
-
-В `render.yaml` у бэкенда стартовая команда включает:
+1. Render читает `render.yaml` и создает сервисы.
+2. Backend стартует командой:
 
 ```bash
 alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
 ```
 
-То есть миграции применяются **при каждом старте** сервиса.
+3. Миграции БД применяются на старте backend.
+4. Frontend собирается `npm ci && npm run build` и публикует `dist`.
+5. Для SPA включен rewrite `/* -> /index.html`.
 
-## 4) Проверка после деплоя
+## 4) Что уже ломалось и как исправили
 
-Откройте:
-- Backend health: `/health`
-- Backend Swagger: `/docs`
-- Frontend: главная страница
+### Ошибка подключения с фронта
 
-Если запросы с фронта падают с CORS — почти всегда нужно поправить `CORS_ORIGINS` на backend.
+Текст: `Не удалось подключиться к серверу. Проверьте VITE_API_URL на frontend и CORS_ORIGINS на backend.`
 
-## 5) Загрузка фото (uploads)
+Причина: неактуальные домены в env.
 
-Фото комнат раздаются бэкендом по `/uploads`.
-В Blueprint подключён диск Render и `UPLOAD_DIR=/var/data/uploads`, чтобы файлы не пропадали при перезапуске.
+Фикс:
+- синхронизированы `CORS_ORIGINS` и `VITE_API_URL` с реальными Render URL;
+- после изменения env выполнен redeploy backend и frontend.
 
+### Регистрация возвращала 503
+
+Причина: в `register` есть обязательная проверка Telegram-конфига.
+
+Фикс:
+- добавить `TELEGRAM_BOT_TOKEN` и `TELEGRAM_BOT_USERNAME` в backend env.
+
+### После нажатия Start код в Telegram не приходил
+
+Причина: у Telegram webhook остался на старом Railway URL и отдавал 404.
+
+Фикс: переустановить webhook на Render backend:
+
+```text
+https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook?url=https://meeting-room-backend-8exb.onrender.com/api/telegram/webhook
+```
+
+Проверка:
+
+```text
+https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/getWebhookInfo
+```
+
+В поле `url` должен быть Render backend URL, не Railway.
+
+## 5) Мини-чеклист после деплоя
+
+- Backend health: `https://meeting-room-backend-8exb.onrender.com/health`
+- Backend docs: `https://meeting-room-backend-8exb.onrender.com/docs`
+- Frontend: `https://meeting-room-frontend-zb0p.onrender.com`
+- В Render env:
+  - `CORS_ORIGINS` совпадает с frontend URL,
+  - `VITE_API_URL` совпадает с backend URL,
+  - Telegram env заполнены.
