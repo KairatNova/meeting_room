@@ -23,13 +23,9 @@ services:
       # IMPORTANT: update after frontend deploy if you rename the service.
       - key: CORS_ORIGINS
         value: https://meeting-room-frontend.onrender.com
-      # Persist uploads (room images) on a Render disk.
+      # Free tier has no persistent disks; uploads will be ephemeral.
       - key: UPLOAD_DIR
-        value: /var/data/uploads
-    disk:
-      name: uploads
-      mountPath: /var/data
-      sizeGB: 1
+        value: uploads
 
   - type: web
     env: static
