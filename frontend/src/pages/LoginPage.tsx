@@ -5,7 +5,7 @@ import { ApiError } from "../api/client";
 import { useI18n } from "../i18n/I18nContext";
 
 /**
- * Вход: email или Telegram-ник + пароль → код в Telegram/email → ввод кода.
+ * Вход: email или Telegram-ник/номер + пароль -> код в Telegram -> ввод кода.
  * При 403 «Подтвердите email» — редирект на страницу ввода кода верификации.
  */
 export function LoginPage() {
@@ -64,14 +64,14 @@ export function LoginPage() {
           )}
           <div>
             <label htmlFor="login" className="block text-sm font-medium text-gray-700 mb-1">
-              Email или Telegram-ник
+              Email, Telegram-ник или номер
             </label>
             <input
               id="login"
               type="text"
               value={login}
               onChange={(e) => setLogin(e.target.value)}
-              placeholder="email@example.com или @username"
+              placeholder="email@example.com, @username или +79991234567"
               required
               className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
             />

@@ -4,6 +4,10 @@ import { authApi } from "../api/auth";
 import { ApiError } from "../api/client";
 import { useI18n } from "../i18n/I18nContext";
 
+function isLikelyEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
 export function ForgotPasswordPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
@@ -19,7 +23,7 @@ export function ForgotPasswordPage() {
     setLoading(true);
     const value = login.trim();
     try {
-      const payload = value.includes("@")
+      const payload = isLikelyEmail(value)
         ? { email: value, telegram: null }
         : { email: null, telegram: value };
       const res = await authApi.forgotPassword(payload);
@@ -54,12 +58,12 @@ export function ForgotPasswordPage() {
         )}
         <div>
           <label htmlFor="forgot-login" className="block text-sm font-medium text-gray-700 mb-1">
-            Email или Telegram-ник
+            Email, Telegram-ник или номер
           </label>
           <input
             id="forgot-login"
             type="text"
-            placeholder="email@example.com или @username"
+            placeholder="email@example.com, @username или +79991234567"
             value={login}
             onChange={(e) => setLogin(e.target.value)}
             required

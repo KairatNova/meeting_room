@@ -23,7 +23,8 @@ export interface UserLogin {
 
 export interface UserRegister {
   full_name: string;
-  telegram_username: string;
+  telegram: string;
+  telegram_username?: string;
   email: string;
   password: string;
 }

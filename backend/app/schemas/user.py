@@ -3,21 +3,36 @@
 """
 from datetime import date
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 
 class UserCreate(BaseModel):
     """Тело запроса регистрации. Код подтверждения отправляется только в Telegram."""
 
     full_name: str = Field(..., min_length=1, max_length=255, description="Имя")
-    telegram_username: str = Field(
-        ...,
+    telegram: str | None = Field(
+        default=None,
         min_length=1,
         max_length=64,
-        description="Ник в Telegram (без @) — на него придёт код подтверждения",
+        description="Telegram-идентификатор: @username или номер телефона",
+    )
+    telegram_username: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=64,
+        description="Устаревшее поле для совместимости: Telegram username (без @)",
     )
     email: EmailStr = Field(..., description="Почта только для идентификации аккаунта, письма не отправляются")
     password: str = Field(..., min_length=8)
+
+    @model_validator(mode="after")
+    def _validate_telegram_identifier(self) -> "UserCreate":
+        # Backward compatibility: if old field is sent, use it.
+        if not self.telegram and self.telegram_username:
+            self.telegram = self.telegram_username
+        if not self.telegram:
+            raise ValueError("Укажите Telegram: @username или номер телефона")
+        return self
 
 
 class UserResponse(BaseModel):

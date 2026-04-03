@@ -2,6 +2,7 @@
 Webhook для Telegram Bot: при /start TOKEN привязываем chat_id к пользователю и отправляем код.
 """
 import logging
+import re
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Request
@@ -16,6 +17,22 @@ from app.services.telegram import send_verification_code, send_message
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+PHONE_RE = re.compile(r"[^\d+]")
+
+
+def _normalize_phone(value: str) -> str:
+    raw = (value or "").strip()
+    if not raw:
+        return ""
+    has_plus = raw.startswith("+")
+    digits = "".join(ch for ch in raw if ch.isdigit())
+    if not digits:
+        return ""
+    if not has_plus:
+        if len(digits) == 11 and digits.startswith("8"):
+            digits = "7" + digits[1:]
+        return f"+{digits}"
+    return f"+{digits}"
 
 
 @router.get("/telegram/webhook")
@@ -46,6 +63,38 @@ async def telegram_webhook(request: Request, db: DbSession) -> dict:
         logger.info("Telegram webhook: no message in update")
         return {"ok": True}
 
+    chat = message.get("chat") or {}
+    chat_id = chat.get("id")
+    contact = message.get("contact") or {}
+    from_user = message.get("from") or {}
+
+    # Phone-based verification flow: user can send contact after /start.
+    if chat_id is not None and contact:
+        user = db.execute(select(User).where(User.telegram_chat_id == chat_id)).scalar_one_or_none()
+        if user and user.phone:
+            expected_phone = _normalize_phone(user.phone)
+            incoming_phone = _normalize_phone(contact.get("phone_number") or "")
+            if expected_phone and incoming_phone == expected_phone:
+                verification = db.execute(
+                    select(EmailVerificationCode).where(EmailVerificationCode.user_id == user.id)
+                ).scalar_one_or_none()
+                now = datetime.now(timezone.utc)
+                if verification and verification.expires_at > now:
+                    settings = get_settings()
+                    send_verification_code(
+                        chat_id,
+                        verification.code,
+                        settings.email_verification_code_expire_minutes,
+                    )
+                else:
+                    send_message(
+                        chat_id,
+                        "⏱ Код подтверждения истёк или уже использован. Зарегистрируйтесь заново на сайте.",
+                    )
+                return {"ok": True}
+            send_message(chat_id, "Номер не совпадает с указанным при регистрации.")
+            return {"ok": True}
+
     text = (message.get("text") or "").strip()
     if not text.startswith("/start"):
         logger.info("Telegram webhook: text does not start with /start, text_len=%s", len(text))
@@ -64,12 +113,10 @@ async def telegram_webhook(request: Request, db: DbSession) -> dict:
     token = token.strip()
     logger.info("Telegram /start token_len=%s token_prefix=%r", len(token), token[:20] if len(token) >= 20 else token)
 
-    chat_id = message.get("chat", {}).get("id")
     if chat_id is None:
         logger.warning("Telegram webhook: no chat_id in message")
         return {"ok": True}
 
-    from_user = message.get("from") or {}
     telegram_username = from_user.get("username")
     if telegram_username:
         telegram_username = telegram_username.lower()
@@ -96,7 +143,15 @@ async def telegram_webhook(request: Request, db: DbSession) -> dict:
 
     # Привязка Telegram к пользователю
     user.telegram_chat_id = chat_id
-    if telegram_username:
+    if user.telegram_username:
+        if not telegram_username or telegram_username != user.telegram_username:
+            send_message(
+                chat_id,
+                "Этот Telegram-аккаунт не совпадает с указанным при регистрации. Используйте корректный @username.",
+            )
+            db.commit()
+            return {"ok": True}
+    elif telegram_username:
         user.telegram_username = telegram_username
     db.add(user)
 
@@ -107,6 +162,14 @@ async def telegram_webhook(request: Request, db: DbSession) -> dict:
 
     now = datetime.now(timezone.utc)
     if verification and verification.expires_at > now:
+        # For phone-based accounts require contact sharing to verify number.
+        if user.phone and not user.telegram_username:
+            send_message(
+                chat_id,
+                "Для подтверждения номера отправьте контакт в Telegram (Скрепка -> Контакт -> Отправить мой номер).",
+            )
+            db.commit()
+            return {"ok": True}
         settings = get_settings()
         logger.info(
             "Telegram: sending code to chat_id=%s user_id=%s expire_min=%s",

@@ -4,6 +4,7 @@
 import random
 import string
 import logging
+import re
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -44,6 +45,7 @@ from app.services.telegram import (
 router = APIRouter()
 settings = get_settings()
 logger = logging.getLogger(__name__)
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def _generate_code(length: int = 6) -> str:
@@ -61,17 +63,61 @@ def _normalize_telegram(login: str) -> str:
     return s
 
 
+def _normalize_phone(value: str) -> str:
+    """
+    Нормализовать номер для сравнения:
+    - оставляем цифры и опциональный ведущий +
+    - если номер из цифр без +, добавляем +
+    - 8XXXXXXXXXX -> +7XXXXXXXXXX (частый RU-ввод)
+    """
+    raw = value.strip()
+    if not raw:
+        return ""
+    has_plus = raw.startswith("+")
+    digits = "".join(ch for ch in raw if ch.isdigit())
+    if not digits:
+        return ""
+    if not has_plus:
+        if len(digits) == 11 and digits.startswith("8"):
+            digits = "7" + digits[1:]
+        return f"+{digits}"
+    return f"+{digits}"
+
+
+def _is_email(login: str) -> bool:
+    return bool(EMAIL_RE.match(login.strip()))
+
+
+def _parse_telegram_identifier(value: str) -> tuple[str | None, str | None]:
+    """
+    Разобрать Telegram-идентификатор из формы регистрации.
+    Возвращает (telegram_username, telegram_phone).
+    """
+    v = value.strip()
+    if not v:
+        return None, None
+    if v.startswith("@"):
+        return _normalize_telegram(v), None
+    phone = _normalize_phone(v)
+    if phone:
+        return None, phone
+    return _normalize_telegram(v), None
+
+
 def _find_user_by_login(db: DbSession, login: str) -> User | None:
-    """Найти пользователя по email или Telegram-нику."""
-    login = login.strip()
-    if not login:
+    """Найти пользователя по email, Telegram-нику или Telegram-номеру."""
+    value = login.strip()
+    if not value:
         return None
-    # Сначала как email
-    email_norm = _normalize_email(login)
-    if "@" in email_norm:
+    if _is_email(value):
+        email_norm = _normalize_email(value)
         return db.execute(select(User).where(User.email == email_norm)).scalar_one_or_none()
-    # Иначе как Telegram-ник
-    tg_norm = _normalize_telegram(login)
+    phone_norm = _normalize_phone(value)
+    if phone_norm:
+        user_by_phone = db.execute(select(User).where(User.phone == phone_norm)).scalar_one_or_none()
+        if user_by_phone:
+            return user_by_phone
+    tg_norm = _normalize_telegram(value)
     return db.execute(select(User).where(User.telegram_username == tg_norm)).scalar_one_or_none()
 
 
@@ -90,7 +136,8 @@ def register(data: UserCreate, db: DbSession) -> RegisterResponse:
         )
 
     email_normalized = _normalize_email(data.email)
-    telegram_norm = _normalize_telegram(data.telegram_username)
+    telegram_identifier = (data.telegram or data.telegram_username or "").strip()
+    telegram_norm, telegram_phone = _parse_telegram_identifier(telegram_identifier)
 
     stmt = select(User).where(User.email == email_normalized)
     existing = db.execute(stmt).scalar_one_or_none()
@@ -105,6 +152,7 @@ def register(data: UserCreate, db: DbSession) -> RegisterResponse:
         user.full_name = data.full_name.strip()
         user.display_name = data.full_name.strip()
         user.telegram_username = telegram_norm
+        user.phone = telegram_phone
     else:
         user = User(
             email=email_normalized,
@@ -112,6 +160,7 @@ def register(data: UserCreate, db: DbSession) -> RegisterResponse:
             full_name=data.full_name.strip(),
             display_name=data.full_name.strip(),
             telegram_username=telegram_norm,
+            phone=telegram_phone,
             is_admin=False,
             is_verified=False,
         )
