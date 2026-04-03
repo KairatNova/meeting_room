@@ -94,3 +94,122 @@ https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/getWebhookInfo
   - `CORS_ORIGINS` совпадает с frontend URL,
   - `VITE_API_URL` совпадает с backend URL,
   - Telegram env заполнены.
+
+## 6) Первые пользователи и админы (база Render)
+
+Пользователя **нельзя** «вставить» только SQL без пароля: в таблице `users` хранится **хэш** пароля (`hashed_password`). Поэтому порядок такой:
+
+1. Зарегистрируйте аккаунт через сайт (полный цикл с Telegram, пока `is_verified = false` до ввода кода).
+2. После того как пользователь есть в БД, назначьте ему админа одним из способов ниже.
+
+### Способ A — скрипт `make_admin.py` с вашего ПК
+
+1. В Render: **Database** → **meeting-room-db** → скопируйте **External Database URL** (или строку подключения, которую можно использовать с вашего компьютера).
+2. Локально в папке `backend`:
+
+```bash
+cd backend
+# Windows PowerShell:
+$env:DATABASE_URL = "postgresql://..."   # вставьте URL из Render
+python scripts/make_admin.py your@email.com
+```
+
+На Linux/macOS:
+
+```bash
+cd backend
+export DATABASE_URL="postgresql://..."
+python scripts/make_admin.py your@email.com
+```
+
+Скрипт выставит `is_admin = true` и `is_verified = true` для указанного email.
+
+### Способ B — SQL в любом клиенте PostgreSQL
+
+Подключитесь к той же БД (DBeaver, pgAdmin, `psql`) и выполните (email в нижнем регистре, как в приложении):
+
+```sql
+UPDATE users
+SET is_admin = true, is_verified = true
+WHERE email = 'your@email.com';
+```
+
+Проверка:
+
+```sql
+SELECT id, email, is_admin, is_verified FROM users WHERE email = 'your@email.com';
+```
+
+### Замечания
+
+- **Внутренний** URL БД (`dpg-...-a`) из Render работает только из сервисов Render; для запуска скрипта с ноутбука нужен **external** URL, если Render его выдаёт для вашего плана.
+- Создавать «первого пользователя» чистым SQL без приложения можно только если вручную сгенерировать bcrypt-хэш пароля — проще всего зарегистрироваться через UI.
+
+## 7) Telegram-бот на Render (полная настройка)
+
+Бот не «живёт» на Render отдельно: он работает через **Telegram Bot API**. Ваш backend на Render принимает **webhook** (`POST /api/telegram/webhook`), обрабатывает `/start <TOKEN>` и шлёт код через `sendMessage`.
+
+### Шаг 1 — переменные окружения backend на Render
+
+В сервисе **meeting-room-backend** → **Environment** добавьте (значения из [@BotFather](https://t.me/BotFather)):
+
+| Переменная | Пример | Замечание |
+|------------|--------|-----------|
+| `TELEGRAM_BOT_TOKEN` | `123456789:AAH...` | Секрет, не коммитить в git |
+| `TELEGRAM_BOT_USERNAME` | `MyMeetingBot` | **Без** `@`, как в ссылке `t.me/MyMeetingBot` |
+
+После изменения env сделайте **Manual Deploy** / перезапуск сервиса.
+
+### Шаг 2 — зарегистрировать webhook на URL Render (обязательно)
+
+Telegram шлёт обновления **только** на тот URL, который указан в `setWebhook`. После переезда с Railway старый URL даёт 404 — код не придёт.
+
+Подставьте **ваш** публичный HTTPS URL backend (из Render → сервис → URL), путь фиксированный:
+
+```text
+https://<ВАШ-BACKEND-НА-RENDER>.onrender.com/api/telegram/webhook
+```
+
+Установка webhook (в браузере или curl, подставьте токен бота):
+
+```text
+https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook?url=https://<ВАШ-BACKEND>.onrender.com/api/telegram/webhook
+```
+
+Проверка:
+
+```text
+https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/getWebhookInfo
+```
+
+Ожидаемо в ответе:
+
+- `result.url` — именно ваш Render backend, **не** старый Railway.
+- `last_error_message` пустой или отсутствует после успешных запросов.
+
+Проверка доступности endpoint (должен вернуть JSON, не 404):
+
+```text
+https://<ВАШ-BACKEND>.onrender.com/api/telegram/webhook
+```
+
+(для `GET` в коде есть заглушка для проверки, что URL живой и HTTPS ок.)
+
+### Шаг 3 — как пользоваться с сайта
+
+1. Регистрация на фронте → backend отдаёт ссылку вида `https://t.me/<бот>?start=<TOKEN>`.
+2. Открыть **именно эту ссылку**, в боте нажать **Start** (если открыть бота через поиск и нажать `/start` без токена — код не отправится).
+3. Backend по webhook находит `TelegramPendingLink` по токену, сохраняет `chat_id`, отправляет код из `email_verification_codes` (название историческое; код уходит в Telegram).
+
+### Типичные проблемы
+
+| Симптом | Что проверить |
+|---------|----------------|
+| Регистрация 503 | Не заданы `TELEGRAM_BOT_TOKEN` / `TELEGRAM_BOT_USERNAME` |
+| Start нажат, кода нет | `getWebhookInfo`: URL всё ещё Railway или другой хост; исправить `setWebhook` |
+| Долгая задержка первого ответа | Free web service на Render «засыпает»; первый запрос может поднимать инстанс — подождите и повторите |
+| Токен в ссылке истёк | Зарегистрируйтесь снова и откройте **новую** ссылку (TTL задаётся `EMAIL_VERIFICATION_CODE_EXPIRE_MINUTES`) |
+
+### Секреты в Blueprint
+
+Токен бота **не** добавляйте в `render.yaml` в репозиторий. Задавайте `TELEGRAM_BOT_TOKEN` и `TELEGRAM_BOT_USERNAME` только в панели Render (Environment) или в секретах провайдера.
