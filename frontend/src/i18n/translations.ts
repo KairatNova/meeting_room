@@ -172,6 +172,13 @@ export const translations: Record<Lang, Namespaces> = {
       location: "Локация",
       delete: "Удалить",
       confirmDelete: "Подтвердить удаление?",
+      adminsPanelTitle: "Администраторы",
+      adminsPanelHint:
+        "Назначайте роль только зарегистрированным пользователям: сначала человек регистрируется на сайте, затем укажите его email.",
+      adminUserEmail: "Email пользователя",
+      promoteAdmin: "Назначить админом",
+      currentAdmins: "Текущие администраторы",
+      noAdminsListed: "Список пуст.",
     },
     roomDetail: {
       booking: "Бронирование",
@@ -396,6 +403,13 @@ export const translations: Record<Lang, Namespaces> = {
       location: "Location",
       delete: "Delete",
       confirmDelete: "Confirm deletion?",
+      adminsPanelTitle: "Administrators",
+      adminsPanelHint:
+        "Promote only registered users: they must sign up first, then enter their email here.",
+      adminUserEmail: "User email",
+      promoteAdmin: "Make admin",
+      currentAdmins: "Current administrators",
+      noAdminsListed: "No administrators listed.",
     },
     roomDetail: {
       booking: "Booking",
@@ -620,6 +634,13 @@ export const translations: Record<Lang, Namespaces> = {
       location: "Жайгашкан жери",
       delete: "Өчүрүү",
       confirmDelete: "Өчүрүүнү ырастайсызбы?",
+      adminsPanelTitle: "Администраторлор",
+      adminsPanelHint:
+        "Катталган колдонуучуларды гана админ кылыңыз: алгач сайтта катталсын, андан кийин email көрсөтүңүз.",
+      adminUserEmail: "Колдонуучунун email",
+      promoteAdmin: "Админ кылуу",
+      currentAdmins: "Учурдагы администраторлор",
+      noAdminsListed: "Тизме бош.",
     },
     roomDetail: {
       booking: "Брондоо",

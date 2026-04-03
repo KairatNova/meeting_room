@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { roomsApi } from "../api/rooms";
+import { adminApi } from "../api/admin";
 import { ApiError } from "../api/client";
-import type { Room, RoomCreate } from "../types/api";
+import type { Room, RoomCreate, AdminUserBrief } from "../types/api";
 import { useI18n } from "../i18n/I18nContext";
 
 /**
@@ -31,6 +32,23 @@ export function AdminPage() {
   const [photoError, setPhotoError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [adminsOpen, setAdminsOpen] = useState(true);
+  const [admins, setAdmins] = useState<AdminUserBrief[]>([]);
+  const [adminsLoading, setAdminsLoading] = useState(true);
+  const [adminEmail, setAdminEmail] = useState("");
+  const [adminPromoteError, setAdminPromoteError] = useState<string | null>(null);
+  const [adminPromoteOk, setAdminPromoteOk] = useState<string | null>(null);
+  const [adminPromoting, setAdminPromoting] = useState(false);
+
+  const loadAdmins = () => {
+    setAdminsLoading(true);
+    adminApi
+      .listAdmins()
+      .then(setAdmins)
+      .catch(() => setAdmins([]))
+      .finally(() => setAdminsLoading(false));
+  };
+
   const loadRooms = () => {
     setLoading(true);
     roomsApi
@@ -42,7 +60,27 @@ export function AdminPage() {
 
   useEffect(() => {
     loadRooms();
+    loadAdmins();
   }, []);
+
+  const handlePromoteAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdminPromoteError(null);
+    setAdminPromoteOk(null);
+    const email = adminEmail.trim();
+    if (!email) return;
+    setAdminPromoting(true);
+    try {
+      const res = await adminApi.promoteUser(email);
+      setAdminPromoteOk(res.message);
+      setAdminEmail("");
+      loadAdmins();
+    } catch (err) {
+      setAdminPromoteError(err instanceof ApiError ? err.message : t("common", "error"));
+    } finally {
+      setAdminPromoting(false);
+    }
+  };
 
   const editingRoom = editingId !== null ? rooms.find((r) => r.id === editingId) : null;
 
@@ -220,6 +258,73 @@ export function AdminPage() {
       {error && (
         <div className="p-3 bg-red-50 text-red-700 rounded text-sm">{error}</div>
       )}
+
+      <section className="app-card overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setAdminsOpen((o) => !o)}
+          className="w-full flex items-center justify-between p-4 text-left border-b border-gray-200 hover:bg-gray-50/80 transition-colors"
+        >
+          <span className="text-lg font-semibold">{t("admin", "adminsPanelTitle")}</span>
+          <span className="text-gray-500 text-sm">{adminsOpen ? "▼" : "▶"}</span>
+        </button>
+        {adminsOpen && (
+          <div className="p-4 space-y-4">
+            <p className="text-sm text-gray-600">{t("admin", "adminsPanelHint")}</p>
+            <form onSubmit={handlePromoteAdmin} className="flex flex-col sm:flex-row gap-2 sm:items-end">
+              <div className="flex-1 min-w-0">
+                <label htmlFor="promote-admin-email" className="field-label">
+                  {t("admin", "adminUserEmail")}
+                </label>
+                <input
+                  id="promote-admin-email"
+                  type="email"
+                  autoComplete="email"
+                  value={adminEmail}
+                  onChange={(e) => setAdminEmail(e.target.value)}
+                  placeholder="colleague@company.com"
+                  className="field-input"
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={adminPromoting}
+                className="btn-primary shrink-0"
+              >
+                {adminPromoting ? t("common", "loading") : t("admin", "promoteAdmin")}
+              </button>
+            </form>
+            {adminPromoteOk && (
+              <div className="p-2 bg-green-50 text-green-800 rounded text-sm" role="status">
+                {adminPromoteOk}
+              </div>
+            )}
+            {adminPromoteError && (
+              <div className="p-2 bg-red-50 text-red-700 rounded text-sm" role="alert">
+                {adminPromoteError}
+              </div>
+            )}
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">{t("admin", "currentAdmins")}</h3>
+              {adminsLoading ? (
+                <p className="text-sm text-gray-500">{t("common", "loading")}</p>
+              ) : admins.length === 0 ? (
+                <p className="text-sm text-gray-500">{t("admin", "noAdminsListed")}</p>
+              ) : (
+                <ul className="text-sm space-y-1 border border-gray-100 rounded-md divide-y divide-gray-100">
+                  {admins.map((a) => (
+                    <li key={a.id} className="px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                      <span className="font-medium text-gray-900">{a.email}</span>
+                      <span className="text-gray-600">{a.full_name}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
+      </section>
 
       <section className="app-card p-4">
         <h2 className="text-lg font-semibold mb-3">

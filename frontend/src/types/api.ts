@@ -171,3 +171,16 @@ export interface UserProfileUpdate {
   gender?: string | null;
   citizenship?: string | null;
 }
+
+/** Краткая информация об администраторе (список в админ-панели). */
+export interface AdminUserBrief {
+  id: number;
+  email: string;
+  full_name: string;
+  is_admin: boolean;
+}
+
+export interface PromoteAdminResponse {
+  message: string;
+  user: AdminUserBrief;
+}
