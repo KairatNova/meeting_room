@@ -55,12 +55,6 @@ export function Layout({ children }: LayoutProps) {
           <nav className="w-full sm:w-auto flex items-center justify-end gap-2 sm:gap-3 text-sm flex-wrap">
             {user ? (
               <>
-                <Link
-                  to="/my-bookings"
-                  className="hover:bg-blue-800 px-3 py-1.5 rounded-md transition-colors"
-                >
-                  {t("layout", "myBookings")}
-                </Link>
                 {user.is_admin && (
                   <Link
                     to="/admin"

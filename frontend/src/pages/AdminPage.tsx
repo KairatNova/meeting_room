@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { roomsApi } from "../api/rooms";
 import { adminApi } from "../api/admin";
-import { ApiError } from "../api/client";
+import { ApiError, mediaUrl } from "../api/client";
 import type { Room, RoomCreate, AdminUserBrief } from "../types/api";
 import { useI18n } from "../i18n/I18nContext";
 import { useAuth } from "../context/AuthContext";
@@ -32,7 +32,6 @@ export function AdminPage() {
   const [photosToAdd, setPhotosToAdd] = useState<File[]>([]);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [adminsOpen, setAdminsOpen] = useState(true);
   const [admins, setAdmins] = useState<AdminUserBrief[]>([]);
@@ -231,24 +230,6 @@ export function AdminPage() {
 
   const removePhotoToAdd = (index: number) => {
     setPhotosToAdd((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleUploadMoreInEdit = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files?.length || editingId === null) return;
-    setPhotoError(null);
-    const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
-    if (list.length === 0) return;
-    try {
-      setUploadingPhotos(true);
-      await roomsApi.uploadPhotos(editingId, list);
-      loadRooms();
-    } catch (err) {
-      setPhotoError(err instanceof ApiError ? err.message : t("common", "error"));
-    } finally {
-      setUploadingPhotos(false);
-    }
-    e.target.value = "";
   };
 
   const handleDeletePhoto = async (roomId: number, photoId: number) => {
@@ -487,7 +468,7 @@ export function AdminPage() {
                 {editingRoom!.photos!.map((p) => (
                   <div key={p.id} className="relative group">
                     <img
-                      src={p.url}
+                      src={mediaUrl(p.url)}
                       alt=""
                       className="w-20 h-20 object-cover rounded border border-gray-200"
                     />
@@ -503,53 +484,41 @@ export function AdminPage() {
                 ))}
               </div>
             )}
-            {editingId !== null && (
-              <div className="mb-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/gif,image/webp"
-                  multiple
-                  onChange={handleUploadMoreInEdit}
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadingPhotos}
-                  className="text-sm text-indigo-600 hover:underline disabled:opacity-50"
-                >
-                  {uploadingPhotos ? t("admin", "uploading") : t("admin", "photos")}
-                </button>
-              </div>
-            )}
-            {(editingId === null || photosToAdd.length > 0) && (
-              <div className="space-y-2">
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/gif,image/webp"
-                  multiple
-                  onChange={handleAddPhotos}
-                  className="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:bg-indigo-50 file:text-indigo-700 file:font-medium"
-                />
-                {photosToAdd.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {photosToAdd.map((file, i) => (
-                      <div key={i} className="flex items-center gap-1 bg-gray-100 rounded px-2 py-1 text-sm">
-                        <span className="max-w-[120px] truncate">{file.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => removePhotoToAdd(i)}
-                          className="text-red-600 hover:underline"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+            <div className="space-y-2">
+              <p className="text-xs text-gray-500">
+                {editingId !== null
+                  ? "Можно выбрать несколько файлов сразу или добавлять партиями — они загрузятся при нажатии «Сохранить»."
+                  : "Выберите одно или несколько изображений — они загрузятся после создания комнаты."}
+              </p>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                multiple
+                onChange={handleAddPhotos}
+                className="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:bg-indigo-50 file:text-indigo-700 file:font-medium"
+              />
+              {photosToAdd.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {photosToAdd.map((file, i) => (
+                    <div
+                      key={`${file.name}-${file.size}-${file.lastModified}-${i}`}
+                      className="relative group"
+                    >
+                      <PendingPhotoThumb file={file} />
+                      <button
+                        type="button"
+                        onClick={() => removePhotoToAdd(i)}
+                        className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-red-600 text-white text-xs leading-6 shadow opacity-90 hover:opacity-100"
+                        aria-label="Убрать из списка"
+                      >
+                        ×
+                      </button>
+                      <p className="max-w-[88px] truncate text-[10px] text-gray-500 mt-0.5">{file.name}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex gap-2">
@@ -630,5 +599,21 @@ export function AdminPage() {
         )}
       </section>
     </div>
+  );
+}
+
+/** Превью локального файла до загрузки на сервер. */
+function PendingPhotoThumb({ file }: { file: File }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    const u = URL.createObjectURL(file);
+    setSrc(u);
+    return () => URL.revokeObjectURL(u);
+  }, [file]);
+  if (!src) {
+    return <div className="w-20 h-20 bg-gray-100 rounded border border-gray-200 animate-pulse" />;
+  }
+  return (
+    <img src={src} alt="" className="w-20 h-20 object-cover rounded border border-gray-200" />
   );
 }

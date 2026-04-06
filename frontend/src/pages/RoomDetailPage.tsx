@@ -7,7 +7,7 @@ import type { DatesSetArg } from "@fullcalendar/core";
 import { roomsApi } from "../api/rooms";
 import { bookingsApi } from "../api/bookings";
 import { useAuth } from "../context/AuthContext";
-import { ApiError } from "../api/client";
+import { ApiError, mediaUrl } from "../api/client";
 import type { Room, Booking, RoomReview } from "../types/api";
 import { useI18n } from "../i18n/I18nContext";
 
@@ -227,7 +227,7 @@ export function RoomDetailPage() {
       <section className="app-card overflow-hidden">
         <div className="h-52 sm:h-60 md:h-72 bg-slate-100 flex items-center justify-center">
           {mainPhoto ? (
-            <img src={mainPhoto.url} alt={room.name} className="w-full h-full object-contain" />
+            <img src={mediaUrl(mainPhoto.url)} alt={room.name} className="w-full h-full object-contain" />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-gray-400">{t("roomDetail", "noPhoto")}</div>
           )}
@@ -266,7 +266,7 @@ export function RoomDetailPage() {
                     idx === selectedPhotoIdx ? "border-indigo-600" : "border-gray-200"
                   }`}
                 >
-                  <img src={photo.url} alt="" className="w-20 h-14 object-cover" />
+                  <img src={mediaUrl(photo.url)} alt="" className="w-20 h-14 object-cover" />
                 </button>
               ))}
             </div>

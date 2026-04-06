@@ -3,6 +3,7 @@
 """
 import uuid
 from pathlib import Path
+from typing import Annotated
 
 from sqlalchemy import select, desc
 from sqlalchemy.orm import selectinload
@@ -144,18 +145,24 @@ def upload_room_photos(
     room_id: int,
     db: DbSession,
     admin: AdminUser,
-    files: list[UploadFile] = File(..., description="Файлы изображений"),
+    files: Annotated[list[UploadFile], File(description="Файлы изображений")],
 ) -> RoomResponse:
     """Добавить одну или несколько фотографий к комнате (только админ)."""
     room = db.get(Room, room_id)
     if room is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Комната не найдена")
+    if not files:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Выберите хотя бы один файл изображения.",
+        )
 
     settings = get_settings()
     upload_root = Path(__file__).resolve().parent.parent.parent / settings.upload_dir
     room_photos_dir = upload_root / "rooms" / str(room_id)
     room_photos_dir.mkdir(parents=True, exist_ok=True)
 
+    count_added = 0
     for f in files:
         if not f.filename:
             continue
@@ -177,10 +184,20 @@ def upload_room_photos(
         file_path.write_bytes(content)
         photo = RoomPhoto(room_id=room_id, path=rel_path)
         db.add(photo)
+        count_added += 1
+
+    if count_added == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Не удалось сохранить изображения: проверьте формат файлов и имена.",
+        )
 
     db.commit()
-    db.refresh(room)
-    return room_to_response(room)
+    # После commit коллекция room.photos у старого экземпляра может быть устаревшей — перечитываем с фото.
+    room_loaded = db.execute(
+        select(Room).options(selectinload(Room.photos)).where(Room.id == room_id)
+    ).scalar_one()
+    return room_to_response(room_loaded)
 
 
 @router.delete("/{room_id}/photos/{photo_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { bookingsApi } from "../api/bookings";
+import { mediaUrl } from "../api/client";
 import { roomsApi } from "../api/rooms";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
@@ -363,7 +364,8 @@ export function HomePage() {
           ) : (
             <ul className="space-y-3">
               {rooms.map((room) => {
-                const photoUrl = room.photos && room.photos.length > 0 ? room.photos[0].url : null;
+                const photoUrlRaw = room.photos && room.photos.length > 0 ? room.photos[0].url : null;
+                const photoUrl = photoUrlRaw ? mediaUrl(photoUrlRaw) : null;
                 return (
                   <li key={room.id}>
                     <Link

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { bookingsApi } from "../api/bookings";
 import type { Booking } from "../types/api";
 import { useI18n } from "../i18n/I18nContext";
+import { ProfileBookingsNav } from "../components/ProfileBookingsNav";
 
 /**
  * Мои бронирования: список и отмена. Заглушка до реализации API.
@@ -75,10 +76,13 @@ export function MyBookingsPage() {
     }
   };
 
-  if (loading) return <p className="text-gray-500">{t("common", "loading")}</p>;
-
   return (
     <div>
+      <ProfileBookingsNav active="bookings" />
+      {loading ? (
+        <p className="text-gray-500">{t("common", "loading")}</p>
+      ) : (
+        <>
       <h1 className="text-2xl font-semibold mb-4">{t("bookings", "title")}</h1>
       {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
       <section className="mb-4 app-card p-3 grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -182,6 +186,8 @@ export function MyBookingsPage() {
             </li>
           )})}
         </ul>
+      )}
+        </>
       )}
     </div>
   );

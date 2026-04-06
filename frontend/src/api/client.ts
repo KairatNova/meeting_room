@@ -12,6 +12,16 @@ export function buildApiUrl(path: string): string {
   return new URL(path.startsWith("http") ? path : `${API_BASE}${path}`, baseOrigin).toString();
 }
 
+/** URL для <img src> к статике API (/uploads/...) при отдельном домене фронта (Render/Vercel). */
+export function mediaUrl(src: string | undefined | null): string {
+  if (src == null) return "";
+  const s = String(src).trim();
+  if (!s) return "";
+  if (/^https?:\/\//i.test(s)) return s;
+  const path = s.startsWith("/") ? s : `/${s}`;
+  return buildApiUrl(path);
+}
+
 function getToken(): string | null {
   return localStorage.getItem("access_token");
 }

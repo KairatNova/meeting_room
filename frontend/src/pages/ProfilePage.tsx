@@ -3,6 +3,7 @@ import { profileApi } from "../api/profile";
 import type { User, UserProfileUpdate } from "../types/api";
 import { useI18n } from "../i18n/I18nContext";
 import { ApiError } from "../api/client";
+import { ProfileBookingsNav } from "../components/ProfileBookingsNav";
 
 export function ProfilePage() {
   const { t } = useI18n();
@@ -56,15 +57,26 @@ export function ProfilePage() {
   };
 
   if (loading) {
-    return <p className="text-gray-500">{t("common", "loading")}</p>;
+    return (
+      <div className="max-w-xl">
+        <ProfileBookingsNav active="profile" />
+        <p className="text-gray-500">{t("common", "loading")}</p>
+      </div>
+    );
   }
 
   if (!user) {
-    return <p className="text-gray-500">{t("common", "userNotFound")}</p>;
+    return (
+      <div className="max-w-xl">
+        <ProfileBookingsNav active="profile" />
+        <p className="text-gray-500">{t("common", "userNotFound")}</p>
+      </div>
+    );
   }
 
   return (
     <div className="max-w-xl">
+      <ProfileBookingsNav active="profile" />
       <h1 className="text-2xl font-semibold mb-4">{t("profile", "title")}</h1>
       <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
         <p className="text-sm text-gray-600 mb-1">Email</p>
