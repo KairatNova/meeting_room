@@ -1,5 +1,4 @@
-import { api } from "./client";
-import { ApiError } from "./client";
+import { api, buildApiUrl, ApiError } from "./client";
 import type { Room, RoomCreate, RoomUpdate, RoomReview, RoomReviewCreate } from "../types/api";
 
 const PREFIX = "/api/rooms";
@@ -32,14 +31,21 @@ export const roomsApi = {
     const token = await getToken();
     const form = new FormData();
     files.forEach((f) => form.append("files", f));
-    const res = await fetch(`${PREFIX}/${roomId}/photos`, {
+    const url = buildApiUrl(`${PREFIX}/${roomId}/photos`);
+    const res = await fetch(url, {
       method: "POST",
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: form,
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      const detail = (body as { detail?: string }).detail ?? res.statusText;
+      const raw = (body as { detail?: unknown }).detail;
+      const detail =
+        typeof raw === "string"
+          ? raw
+          : Array.isArray(raw) && raw.length > 0
+            ? String((raw[0] as { msg?: string })?.msg ?? JSON.stringify(raw[0]))
+            : res.statusText;
       throw new ApiError(res.status, detail);
     }
     return res.json() as Promise<Room>;

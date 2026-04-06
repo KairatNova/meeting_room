@@ -21,3 +21,7 @@ class AdminUserBrief(BaseModel):
 class PromoteAdminResponse(BaseModel):
     message: str
     user: AdminUserBrief
+
+
+class DemoteAdminResponse(BaseModel):
+    message: str

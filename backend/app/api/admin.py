@@ -3,11 +3,11 @@
 Комнаты CRUD уже в rooms.py с зависимостью AdminUser.
 """
 from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.core.dependencies import AdminUser, DbSession
 from app.models.user import User
-from app.schemas.admin_api import AdminUserBrief, PromoteAdminRequest, PromoteAdminResponse
+from app.schemas.admin_api import AdminUserBrief, DemoteAdminResponse, PromoteAdminRequest, PromoteAdminResponse
 
 router = APIRouter()
 
@@ -51,6 +51,35 @@ def promote_user(data: PromoteAdminRequest, db: DbSession, admin: AdminUser) -> 
         message="Пользователь назначен администратором.",
         user=AdminUserBrief.model_validate(user),
     )
+
+
+@router.delete("/admins/{user_id}", response_model=DemoteAdminResponse)
+def demote_admin(user_id: int, db: DbSession, admin: AdminUser) -> DemoteAdminResponse:
+    """Снять права администратора с другого пользователя (не с себя; в системе остаётся ≥1 админ)."""
+    if user_id == admin.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Нельзя снять права администратора с собственной учётной записи.",
+        )
+    target = db.get(User, user_id)
+    if target is None or not target.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Пользователь не найден или не является администратором.",
+        )
+    admin_count = (
+        db.execute(select(func.count()).select_from(User).where(User.is_admin.is_(True))).scalar() or 0
+    )
+    if admin_count < 2:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="В системе должен остаться хотя бы один администратор.",
+        )
+    target.is_admin = False
+    db.add(target)
+    db.commit()
+    db.refresh(target)
+    return DemoteAdminResponse(message="Права администратора сняты.")
 
 
 @router.get("/me")

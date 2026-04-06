@@ -184,3 +184,7 @@ export interface PromoteAdminResponse {
   message: string;
   user: AdminUserBrief;
 }
+
+export interface DemoteAdminResponse {
+  message: string;
+}

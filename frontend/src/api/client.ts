@@ -6,6 +6,12 @@
 
 const API_BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, "");
 
+/** Полный URL API (для fetch без api.* — например multipart загрузка файлов). */
+export function buildApiUrl(path: string): string {
+  const baseOrigin = API_BASE || window.location.origin;
+  return new URL(path.startsWith("http") ? path : `${API_BASE}${path}`, baseOrigin).toString();
+}
+
 function getToken(): string | null {
   return localStorage.getItem("access_token");
 }

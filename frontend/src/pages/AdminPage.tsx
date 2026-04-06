@@ -4,12 +4,14 @@ import { adminApi } from "../api/admin";
 import { ApiError } from "../api/client";
 import type { Room, RoomCreate, AdminUserBrief } from "../types/api";
 import { useI18n } from "../i18n/I18nContext";
+import { useAuth } from "../context/AuthContext";
 
 /**
  * Админ-панель: список комнат, добавление, редактирование, удаление, фотографии.
  */
 export function AdminPage() {
   const { t } = useI18n();
+  const { user: currentUser } = useAuth();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +41,9 @@ export function AdminPage() {
   const [adminPromoteError, setAdminPromoteError] = useState<string | null>(null);
   const [adminPromoteOk, setAdminPromoteOk] = useState<string | null>(null);
   const [adminPromoting, setAdminPromoting] = useState(false);
+  const [adminDemoteConfirmId, setAdminDemoteConfirmId] = useState<number | null>(null);
+  const [adminDemoteError, setAdminDemoteError] = useState<string | null>(null);
+  const [adminDemoting, setAdminDemoting] = useState(false);
 
   const loadAdmins = () => {
     setAdminsLoading(true);
@@ -79,6 +84,27 @@ export function AdminPage() {
       setAdminPromoteError(err instanceof ApiError ? err.message : t("common", "error"));
     } finally {
       setAdminPromoting(false);
+    }
+  };
+
+  const handleDemoteAdmin = async (userId: number) => {
+    if (adminDemoteConfirmId !== userId) {
+      setAdminDemoteConfirmId(userId);
+      setAdminDemoteError(null);
+      return;
+    }
+    setAdminDemoteError(null);
+    setAdminDemoting(true);
+    try {
+      await adminApi.demoteAdmin(userId);
+      setAdminDemoteConfirmId(null);
+      setAdminPromoteOk(null);
+      loadAdmins();
+    } catch (err) {
+      setAdminDemoteError(err instanceof ApiError ? err.message : t("common", "error"));
+      setAdminDemoteConfirmId(null);
+    } finally {
+      setAdminDemoting(false);
     }
   };
 
@@ -305,6 +331,11 @@ export function AdminPage() {
                 {adminPromoteError}
               </div>
             )}
+            {adminDemoteError && (
+              <div className="p-2 bg-red-50 text-red-700 rounded text-sm" role="alert">
+                {adminDemoteError}
+              </div>
+            )}
             <div>
               <h3 className="text-sm font-medium text-gray-700 mb-2">{t("admin", "currentAdmins")}</h3>
               {adminsLoading ? (
@@ -314,9 +345,33 @@ export function AdminPage() {
               ) : (
                 <ul className="text-sm space-y-1 border border-gray-100 rounded-md divide-y divide-gray-100">
                   {admins.map((a) => (
-                    <li key={a.id} className="px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                      <span className="font-medium text-gray-900">{a.email}</span>
-                      <span className="text-gray-600">{a.full_name}</span>
+                    <li
+                      key={a.id}
+                      className="px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
+                    >
+                      <div className="min-w-0 flex flex-col sm:flex-row sm:items-center sm:gap-3 gap-0.5">
+                        <span className="font-medium text-gray-900 truncate">{a.email}</span>
+                        <span className="text-gray-600 truncate">{a.full_name}</span>
+                        {currentUser?.id === a.id && (
+                          <span className="text-xs text-indigo-600 shrink-0">({t("admin", "you")})</span>
+                        )}
+                      </div>
+                      {currentUser?.id !== a.id && (
+                        <button
+                          type="button"
+                          disabled={adminDemoting}
+                          onClick={() => handleDemoteAdmin(a.id)}
+                          className={
+                            adminDemoteConfirmId === a.id
+                              ? "text-sm text-red-700 font-semibold hover:underline shrink-0"
+                              : "text-sm text-red-600 hover:underline shrink-0"
+                          }
+                        >
+                          {adminDemoteConfirmId === a.id
+                            ? t("admin", "confirmRemoveAdmin")
+                            : t("admin", "removeAdmin")}
+                        </button>
+                      )}
                     </li>
                   ))}
                 </ul>

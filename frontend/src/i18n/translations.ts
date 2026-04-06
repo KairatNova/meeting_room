@@ -179,6 +179,9 @@ export const translations: Record<Lang, Namespaces> = {
       promoteAdmin: "Назначить админом",
       currentAdmins: "Текущие администраторы",
       noAdminsListed: "Список пуст.",
+      you: "вы",
+      removeAdmin: "Снять с админов",
+      confirmRemoveAdmin: "Подтвердить снятие?",
     },
     roomDetail: {
       booking: "Бронирование",
@@ -410,6 +413,9 @@ export const translations: Record<Lang, Namespaces> = {
       promoteAdmin: "Make admin",
       currentAdmins: "Current administrators",
       noAdminsListed: "No administrators listed.",
+      you: "you",
+      removeAdmin: "Remove admin",
+      confirmRemoveAdmin: "Confirm removal?",
     },
     roomDetail: {
       booking: "Booking",
@@ -641,6 +647,9 @@ export const translations: Record<Lang, Namespaces> = {
       promoteAdmin: "Админ кылуу",
       currentAdmins: "Учурдагы администраторлор",
       noAdminsListed: "Тизме бош.",
+      you: "сиз",
+      removeAdmin: "Админдиктен алуу",
+      confirmRemoveAdmin: "Ырастайсызбы?",
     },
     roomDetail: {
       booking: "Брондоо",
