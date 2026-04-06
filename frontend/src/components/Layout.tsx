@@ -84,15 +84,33 @@ export function Layout({ children }: LayoutProps) {
                         to="/profile"
                         role="menuitem"
                         onClick={() => setDropdownOpen(false)}
-                        className="block px-4 py-2 text-sm hover:bg-gray-100 rounded-t-lg"
+                        className="block px-4 py-2 text-sm hover:bg-gray-100"
                       >
                         {t("layout", "myData")}
                       </Link>
+                      <Link
+                        to="/my-bookings"
+                        role="menuitem"
+                        onClick={() => setDropdownOpen(false)}
+                        className="block px-4 py-2 text-sm hover:bg-gray-100"
+                      >
+                        {t("layout", "myBookings")}
+                      </Link>
+                      {user.is_admin && (
+                        <Link
+                          to="/admin"
+                          role="menuitem"
+                          onClick={() => setDropdownOpen(false)}
+                          className="block px-4 py-2 text-sm hover:bg-gray-100"
+                        >
+                          {t("nav", "admin")}
+                        </Link>
+                      )}
                       <button
                         type="button"
                         role="menuitem"
                         onClick={handleLogout}
-                        className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-red-600 rounded-b-lg"
+                        className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-red-600"
                       >
                         {t("layout", "logout")}
                       </button>

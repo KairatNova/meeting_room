@@ -15,12 +15,14 @@ export function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setLoading(true);
     try {
       const res = await register(fullName, telegram.trim(), email, password);
       navigate("/verify-email", {
@@ -29,6 +31,8 @@ export function RegisterPage() {
       });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("auth", "registerError"));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -103,8 +107,12 @@ export function RegisterPage() {
         </div>
         <button
           type="submit"
-          className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700"
+          disabled={loading}
+          className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
         >
+          {loading && (
+            <span className="inline-block w-4 h-4 border-2 border-white/80 border-t-transparent rounded-full animate-spin" />
+          )}
           {t("auth", "signUp")}
         </button>
       </form>

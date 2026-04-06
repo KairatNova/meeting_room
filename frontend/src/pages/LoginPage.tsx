@@ -17,12 +17,15 @@ export function LoginPage() {
   const [step, setStep] = useState<"credentials" | "code">("credentials");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [loadingCredentials, setLoadingCredentials] = useState(false);
+  const [loadingCode, setLoadingCode] = useState(false);
   const { loginRequest, loginVerify } = useAuth();
   const navigate = useNavigate();
 
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setLoadingCredentials(true);
     try {
       await loginRequest(login, password);
       setStep("code");
@@ -32,17 +35,22 @@ export function LoginPage() {
         return;
       }
       setError(err instanceof ApiError ? err.message : t("auth", "loginError"));
+    } finally {
+      setLoadingCredentials(false);
     }
   };
 
   const handleCodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setLoadingCode(true);
     try {
       await loginVerify(login, code);
       navigate("/");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("auth", "loginError"));
+    } finally {
+      setLoadingCode(false);
     }
   };
 
@@ -91,8 +99,12 @@ export function LoginPage() {
           </div>
           <button
             type="submit"
-            className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700"
+            disabled={loadingCredentials}
+            className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
           >
+            {loadingCredentials && (
+              <span className="inline-block w-4 h-4 border-2 border-white/80 border-t-transparent rounded-full animate-spin" />
+            )}
             {t("auth", "signIn")}
           </button>
         </form>
@@ -125,8 +137,12 @@ export function LoginPage() {
           </div>
           <button
             type="submit"
-            className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700"
+            disabled={loadingCode}
+            className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
           >
+            {loadingCode && (
+              <span className="inline-block w-4 h-4 border-2 border-white/80 border-t-transparent rounded-full animate-spin" />
+            )}
             Войти
           </button>
           <button
