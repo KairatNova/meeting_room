@@ -5,6 +5,7 @@ import { ApiError, mediaUrl } from "../api/client";
 import type { Room, RoomCreate, AdminUserBrief } from "../types/api";
 import { useI18n } from "../i18n/I18nContext";
 import { useAuth } from "../context/AuthContext";
+import { ProfileBookingsNav } from "../components/ProfileBookingsNav";
 
 /**
  * Админ-панель: список комнат, добавление, редактирование, удаление, фотографии.
@@ -259,6 +260,7 @@ export function AdminPage() {
 
   return (
     <div className="space-y-6">
+      <ProfileBookingsNav active="admin" />
       <h1 className="text-2xl font-semibold">{t("admin", "title")}</h1>
       <p className="text-gray-600 text-sm">{t("admin", "subtitle")}</p>
 

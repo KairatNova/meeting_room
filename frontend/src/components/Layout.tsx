@@ -55,14 +55,6 @@ export function Layout({ children }: LayoutProps) {
           <nav className="w-full sm:w-auto flex items-center justify-end gap-2 sm:gap-3 text-sm flex-wrap">
             {user ? (
               <>
-                {user.is_admin && (
-                  <Link
-                    to="/admin"
-                    className="hover:bg-blue-800 px-3 py-1.5 rounded-md transition-colors"
-                  >
-                    {t("nav", "admin")}
-                  </Link>
-                )}
                 <div className="relative" ref={dropdownRef}>
                   <button
                     type="button"
