@@ -4,6 +4,8 @@ import type { User, UserProfileUpdate } from "../types/api";
 import { useI18n } from "../i18n/I18nContext";
 import { ApiError } from "../api/client";
 import { ProfileBookingsNav } from "../components/ProfileBookingsNav";
+import { EmptyStateCard } from "../components/EmptyStateCard";
+import { SkeletonBlocks } from "../components/SkeletonBlocks";
 
 export function ProfilePage() {
   const { t } = useI18n();
@@ -60,7 +62,7 @@ export function ProfilePage() {
     return (
       <div className="max-w-xl">
         <ProfileBookingsNav active="profile" />
-        <p className="text-gray-500">{t("common", "loading")}</p>
+        <SkeletonBlocks count={2} className="h-24" />
       </div>
     );
   }
@@ -69,7 +71,7 @@ export function ProfilePage() {
     return (
       <div className="max-w-xl">
         <ProfileBookingsNav active="profile" />
-        <p className="text-gray-500">{t("common", "userNotFound")}</p>
+        <EmptyStateCard title={t("common", "userNotFound")} />
       </div>
     );
   }

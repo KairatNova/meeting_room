@@ -15,13 +15,14 @@ import { ProfilePage } from "./pages/ProfilePage";
 import { AboutPage } from "./pages/AboutPage";
 import { HelpPage } from "./pages/HelpPage";
 import { HowToUsePage } from "./pages/HowToUsePage";
+import { BookingDetailsPage } from "./pages/BookingDetailsPage";
 
 /**
  * Защищённый маршрут: редирект на логин, если пользователь не авторизован.
  */
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  if (loading) return <div className="p-8 text-center">Загрузка...</div>;
+  if (loading) return <div className="p-8 text-center" role="status" aria-live="polite">Загрузка...</div>;
   if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
@@ -31,7 +32,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
  */
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  if (loading) return <div className="p-8 text-center">Загрузка...</div>;
+  if (loading) return <div className="p-8 text-center" role="status" aria-live="polite">Загрузка...</div>;
   if (!user) return <Navigate to="/login" replace />;
   if (!user.is_admin) return <Navigate to="/" replace />;
   return <>{children}</>;
@@ -57,6 +58,14 @@ function App() {
           element={
             <PrivateRoute>
               <MyBookingsPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/my-bookings/:bookingId"
+          element={
+            <PrivateRoute>
+              <BookingDetailsPage />
             </PrivateRoute>
           }
         />

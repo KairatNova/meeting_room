@@ -3,9 +3,13 @@ import { Link, useNavigate } from "react-router-dom";
 import { bookingsApi } from "../api/bookings";
 import { mediaUrl } from "../api/client";
 import { roomsApi } from "../api/rooms";
+import { EmptyStateCard } from "../components/EmptyStateCard";
+import { SkeletonBlocks } from "../components/SkeletonBlocks";
 import { useAuth } from "../context/AuthContext";
+import { useFavoriteRooms } from "../hooks/useFavoriteRooms";
+import { useRecentRooms } from "../hooks/useRecentRooms";
 import { useI18n } from "../i18n/I18nContext";
-import type { Room } from "../types/api";
+import type { Booking, Room } from "../types/api";
 
 /**
  * Главная: фильтры и список комнат для авторизованных пользователей.
@@ -14,6 +18,8 @@ export function HomePage() {
   const { t } = useI18n();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { favoriteIds, isFavorite, toggleFavorite } = useFavoriteRooms();
+  const { recentRoomIds } = useRecentRooms();
 
   const [date, setDate] = useState("");
   const [timeStart, setTimeStart] = useState("");
@@ -28,7 +34,10 @@ export function HomePage() {
   const [sortBy, setSortBy] = useState("name_asc");
 
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [allRooms, setAllRooms] = useState<Room[]>([]);
+  const [myUpcomingBookings, setMyUpcomingBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(false);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
   const [filterError, setFilterError] = useState<string | null>(null);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -130,6 +139,51 @@ export function HomePage() {
     };
   }, [user, capacityMin, search, amenities, region, city, district, address, sortBy, date, timeStart, timeEnd]);
 
+  useEffect(() => {
+    if (!user) {
+      setAllRooms([]);
+      setMyUpcomingBookings([]);
+      return;
+    }
+    let cancelled = false;
+    setDashboardLoading(true);
+    Promise.all([
+      roomsApi.list(),
+      bookingsApi.myBookings({ from_time: new Date().toISOString() }),
+    ])
+      .then(([allRoomsData, bookingsData]) => {
+        if (cancelled) return;
+        setAllRooms(allRoomsData);
+        setMyUpcomingBookings(
+          bookingsData
+            .slice()
+            .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+            .slice(0, 3)
+        );
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAllRooms([]);
+        setMyUpcomingBookings([]);
+      })
+      .finally(() => {
+        if (!cancelled) setDashboardLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  useEffect(() => {
+    if (!searchModalOpen) return;
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSearchModalOpen(false);
+    };
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [searchModalOpen]);
+
   const shownCount = useMemo(() => rooms.length, [rooms]);
   const hasActiveFilters = Boolean(
     date ||
@@ -175,6 +229,15 @@ export function HomePage() {
     setSortBy("name_asc");
     setShowAdvancedFilters(false);
   };
+
+  const favoriteRooms = useMemo(
+    () => favoriteIds.map((id) => allRooms.find((r) => r.id === id)).filter(Boolean) as Room[],
+    [favoriteIds, allRooms]
+  );
+  const recentRooms = useMemo(
+    () => recentRoomIds.map((id) => allRooms.find((r) => r.id === id)).filter(Boolean) as Room[],
+    [recentRoomIds, allRooms]
+  );
 
   const handleSearchClick = () => {
     if (!user) {
@@ -345,6 +408,84 @@ export function HomePage() {
       </section>
 
       {user ? (
+        <>
+        <section className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <div className="app-card p-4">
+            <p className="text-sm text-gray-500">Ближайшие бронирования</p>
+            {dashboardLoading ? (
+              <p className="text-sm text-gray-500 mt-2">{t("common", "loading")}</p>
+            ) : myUpcomingBookings.length === 0 ? (
+              <p className="text-sm text-gray-600 mt-2">Пока нет активных броней.</p>
+            ) : (
+              <ul className="mt-2 space-y-2 text-sm">
+                {myUpcomingBookings.map((b) => (
+                  <li key={b.id} className="border-b border-gray-100 pb-2 last:border-b-0">
+                    <p className="font-medium text-gray-900">{b.room_name || `Комната #${b.room_id}`}</p>
+                    <p className="text-gray-600">
+                      {new Date(b.start_time).toLocaleString()} - {new Date(b.end_time).toLocaleTimeString()}
+                    </p>
+                    <Link to={`/my-bookings/${b.id}`} className="text-indigo-600 hover:underline">
+                      Открыть бронь
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className="app-card p-4">
+            <p className="text-sm text-gray-500">Свободно сейчас (по фильтрам)</p>
+            <p className="mt-2 text-3xl font-semibold text-gray-900">{shownCount}</p>
+            <p className="text-sm text-gray-600 mt-1">Обновляется автоматически по текущему интервалу.</p>
+          </div>
+          <div className="app-card p-4">
+            <p className="text-sm text-gray-500">Быстрый переход</p>
+            <div className="mt-2 flex flex-col gap-2">
+              <Link to="/profile" className="text-indigo-600 hover:underline">{t("layout", "myData")}</Link>
+              <Link to="/my-bookings" className="text-indigo-600 hover:underline">{t("layout", "myBookings")}</Link>
+              {user.is_admin && (
+                <Link to="/admin" className="text-indigo-600 hover:underline">{t("nav", "admin")}</Link>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">Избранные комнаты</h2>
+            {favoriteRooms.length === 0 ? (
+              <EmptyStateCard
+                title="Пока нет избранных комнат"
+                hint="Добавьте комнату в избранное по кнопке со звездой."
+              />
+            ) : (
+              <ul className="space-y-2">
+                {favoriteRooms.slice(0, 4).map((room) => (
+                  <li key={room.id}>
+                    <RoomListItem room={room} isFavorite={isFavorite(room.id)} onToggleFavorite={toggleFavorite} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">Недавно просмотренные</h2>
+            {recentRooms.length === 0 ? (
+              <EmptyStateCard
+                title="Пока нет недавно просмотренных комнат"
+                hint="Откройте детальную страницу комнаты, и она появится здесь."
+              />
+            ) : (
+              <ul className="space-y-2">
+                {recentRooms.slice(0, 4).map((room) => (
+                  <li key={room.id}>
+                    <RoomListItem room={room} isFavorite={isFavorite(room.id)} onToggleFavorite={toggleFavorite} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+
         <section id="rooms-list" className="space-y-4">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-xl font-semibold text-gray-900">{t("home", "availableRooms")}</h2>
@@ -352,52 +493,25 @@ export function HomePage() {
           </div>
 
           {loading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 3 }).map((_, idx) => (
-                <div key={idx} className="app-card h-28 animate-pulse" />
-              ))}
-            </div>
+            <SkeletonBlocks count={3} className="h-28" />
           ) : rooms.length === 0 ? (
-            <div className="app-card p-5">
-              <p className="empty-state">{t("home", "noRoomsByFilters")}</p>
-            </div>
+            <EmptyStateCard
+              title={t("home", "noRoomsByFilters")}
+              hint="Измените фильтры или сбросьте параметры поиска."
+            />
           ) : (
             <ul className="space-y-3">
               {rooms.map((room) => {
-                const photoUrlRaw = room.photos && room.photos.length > 0 ? room.photos[0].url : null;
-                const photoUrl = photoUrlRaw ? mediaUrl(photoUrlRaw) : null;
                 return (
                   <li key={room.id}>
-                    <Link
-                      to={`/rooms/${room.id}`}
-                      className="app-card flex flex-col sm:flex-row overflow-hidden hover:shadow-md hover:border-blue-400 transition-all"
-                    >
-                      <div className="sm:w-52 h-40 sm:h-auto bg-gray-100 shrink-0">
-                        {photoUrl ? (
-                          <img src={photoUrl} alt={room.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-sm text-gray-400">{t("home", "noPhoto")}</div>
-                        )}
-                      </div>
-                      <div className="p-4 flex-1 space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <h3 className="font-semibold text-gray-900">{room.name}</h3>
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">{t("home", "free")}</span>
-                        </div>
-                        <p className="text-sm text-gray-600 line-clamp-2">{room.description ?? t("home", "noDescription")}</p>
-                        <p className="text-sm text-gray-500">{t("home", "capacityLabel")}: {room.capacity}</p>
-                        <p className="text-sm text-gray-500">{t("home", "amenitiesLabel")}: {room.amenities ?? "—"}</p>
-                        <p className="text-sm text-gray-500">
-                          {t("home", "locationLabel")}: {[room.region, room.city, room.district, room.address].filter(Boolean).join(", ") || "—"}
-                        </p>
-                      </div>
-                    </Link>
+                    <RoomListItem room={room} isFavorite={isFavorite(room.id)} onToggleFavorite={toggleFavorite} />
                   </li>
                 );
               })}
             </ul>
           )}
         </section>
+        </>
       ) : (
         <section className="app-card p-5 space-y-3">
           <h2 className="text-xl font-semibold text-gray-900">{t("home", "authListTitle")}</h2>
@@ -446,6 +560,61 @@ export function HomePage() {
           </div>
         </div>
       )}
+      <div className="sr-only" role="status" aria-live="polite">
+        {filterError ?? ""}
+      </div>
+    </div>
+  );
+}
+
+function RoomListItem({
+  room,
+  isFavorite,
+  onToggleFavorite,
+}: {
+  room: Room;
+  isFavorite: boolean;
+  onToggleFavorite: (roomId: number) => void;
+}) {
+  const { t } = useI18n();
+  const photoUrlRaw = room.photos && room.photos.length > 0 ? room.photos[0].url : null;
+  const photoUrl = photoUrlRaw ? mediaUrl(photoUrlRaw) : null;
+  return (
+    <div className="app-card flex flex-col sm:flex-row overflow-hidden hover:shadow-md hover:border-blue-400 transition-all">
+      <Link to={`/rooms/${room.id}`} className="contents">
+        <div className="sm:w-52 h-40 sm:h-auto bg-gray-100 shrink-0">
+          {photoUrl ? (
+            <img src={photoUrl} alt={room.name} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-sm text-gray-400">{t("home", "noPhoto")}</div>
+          )}
+        </div>
+      </Link>
+      <div className="p-4 flex-1 space-y-2">
+        <div className="flex items-start justify-between gap-2">
+          <Link to={`/rooms/${room.id}`} className="font-semibold text-gray-900 hover:underline">
+            {room.name}
+          </Link>
+          <div className="flex items-center gap-2">
+            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">{t("home", "free")}</span>
+            <button
+              type="button"
+              onClick={() => onToggleFavorite(room.id)}
+              className={isFavorite ? "text-amber-500" : "text-gray-300 hover:text-amber-500"}
+              aria-label={isFavorite ? "Убрать из избранного" : "Добавить в избранное"}
+              title={isFavorite ? "Убрать из избранного" : "Добавить в избранное"}
+            >
+              ★
+            </button>
+          </div>
+        </div>
+        <p className="text-sm text-gray-600 line-clamp-2">{room.description ?? t("home", "noDescription")}</p>
+        <p className="text-sm text-gray-500">{t("home", "capacityLabel")}: {room.capacity}</p>
+        <p className="text-sm text-gray-500">{t("home", "amenitiesLabel")}: {room.amenities ?? "—"}</p>
+        <p className="text-sm text-gray-500">
+          {t("home", "locationLabel")}: {[room.region, room.city, room.district, room.address].filter(Boolean).join(", ") || "—"}
+        </p>
+      </div>
     </div>
   );
 }

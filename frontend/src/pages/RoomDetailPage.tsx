@@ -8,6 +8,10 @@ import { roomsApi } from "../api/rooms";
 import { bookingsApi } from "../api/bookings";
 import { useAuth } from "../context/AuthContext";
 import { ApiError, mediaUrl } from "../api/client";
+import { EmptyStateCard } from "../components/EmptyStateCard";
+import { SkeletonBlocks } from "../components/SkeletonBlocks";
+import { useFavoriteRooms } from "../hooks/useFavoriteRooms";
+import { useRecentRooms } from "../hooks/useRecentRooms";
 import type { Room, Booking, RoomReview } from "../types/api";
 import { useI18n } from "../i18n/I18nContext";
 
@@ -37,6 +41,8 @@ export function RoomDetailPage() {
   const [reviewComment, setReviewComment] = useState("");
   const [reviewSaving, setReviewSaving] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const { isFavorite, toggleFavorite } = useFavoriteRooms();
+  const { pushRecent } = useRecentRooms();
 
   const id = roomId ? parseInt(roomId, 10) : NaN;
   const isIdValid = !Number.isNaN(id) && id >= 1;
@@ -91,6 +97,11 @@ export function RoomDetailPage() {
 
   useEffect(() => {
     setSelectedPhotoIdx(0);
+  }, [room?.id]);
+
+  useEffect(() => {
+    if (!room) return;
+    pushRecent(room.id);
   }, [room?.id]);
 
   const handleDatesSet = useCallback((arg: DatesSetArg) => {
@@ -204,15 +215,10 @@ export function RoomDetailPage() {
     }
   };
 
-  if (loading) return <p className="text-gray-500">{t("common", "loading")}</p>;
+  if (loading) return <SkeletonBlocks count={2} className="h-36" />;
   if (!room)
     return (
-      <div>
-        <p className="text-gray-500">{t("common", "error")}</p>
-        <Link to="/rooms" className="text-indigo-600 hover:underline mt-2 inline-block">
-          {t("home", "openRooms")}
-        </Link>
-      </div>
+      <EmptyStateCard title={t("common", "error")} actionLabel={t("home", "openRooms")} actionTo="/rooms" />
     );
 
   const photos = room.photos ?? [];
@@ -238,9 +244,20 @@ export function RoomDetailPage() {
               <h1 className="text-2xl font-semibold">{room.name}</h1>
               <p className="text-gray-600 mt-1">{room.description ?? t("home", "noDescription")}</p>
             </div>
-            <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full text-sm">
-              {t("home", "capacityLabel")}: {room.capacity}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full text-sm">
+                {t("home", "capacityLabel")}: {room.capacity}
+              </span>
+              <button
+                type="button"
+                onClick={() => toggleFavorite(room.id)}
+                className={isFavorite(room.id) ? "text-amber-500 text-xl" : "text-gray-300 hover:text-amber-500 text-xl"}
+                aria-label={isFavorite(room.id) ? "Убрать комнату из избранного" : "Добавить комнату в избранное"}
+                title={isFavorite(room.id) ? "Убрать из избранного" : "Добавить в избранное"}
+              >
+                ★
+              </button>
+            </div>
           </div>
           {room.amenities && (
             <div className="flex flex-wrap gap-2">

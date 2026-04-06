@@ -96,6 +96,21 @@ def test_has_booking_conflict_returns_false_when_times_only_touch_boundaries():
     db.close()
 
 
+def test_has_booking_conflict_with_buffer_detects_boundary_touch_as_conflict():
+    db = _make_session()
+    user, room = _seed_user_and_room(db)
+    _create_booking(db, user.id, room.id, _utc_dt(10), _utc_dt(12))
+
+    # Без буфера пересечения нет (слоты "стыкуются").
+    without_buffer = has_booking_conflict(db, room.id, _utc_dt(12), _utc_dt(13))
+    # С буфером 15 мин следующий слот уже конфликтует.
+    with_buffer = has_booking_conflict(db, room.id, _utc_dt(12), _utc_dt(13), buffer_minutes=15)
+
+    assert without_buffer is False
+    assert with_buffer is True
+    db.close()
+
+
 def test_has_booking_conflict_returns_false_for_other_room():
     db = _make_session()
     user, room_a = _seed_user_and_room(db)

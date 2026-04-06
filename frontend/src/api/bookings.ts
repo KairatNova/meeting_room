@@ -10,6 +10,8 @@ export const bookingsApi = {
   myBookings: (params?: { from_time?: string; to_time?: string }) =>
     api.get<Booking[]>(`${PREFIX}/me`, { params: params as Record<string, string | number | boolean | undefined> }),
 
+  getById: (id: number) => api.get<Booking>(`${PREFIX}/${id}`),
+
   create: (data: BookingCreate) => api.post<Booking>(PREFIX, data),
   cancel: (id: number) => api.delete<void>(`${PREFIX}/${id}`),
 };

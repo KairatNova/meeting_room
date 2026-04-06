@@ -16,6 +16,8 @@ from app.services.booking_conflict import has_booking_conflict
 router = APIRouter()
 MAX_BOOKING_DURATION_HOURS = 6
 MIN_BOOKING_DURATION_MINUTES = 30
+CONFLICT_BUFFER_MINUTES = 15
+CANCEL_DEADLINE_MINUTES = 30
 
 
 def _ensure_utc(dt: datetime) -> datetime:
@@ -82,10 +84,20 @@ def create_booking(data: BookingCreate, db: DbSession, user: CurrentUser) -> Boo
     room = db.get(Room, data.room_id)
     if room is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Комната не найдена")
-    if has_booking_conflict(db, data.room_id, start, end, exclude_booking_id=None):
+    if has_booking_conflict(
+        db,
+        data.room_id,
+        start,
+        end,
+        exclude_booking_id=None,
+        buffer_minutes=CONFLICT_BUFFER_MINUTES,
+    ):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Выбранное время пересекается с существующим бронированием",
+            detail=(
+                "Выбранное время пересекается с существующим бронированием "
+                f"(учитывается буфер {CONFLICT_BUFFER_MINUTES} минут)"
+            ),
         )
     booking = Booking(
         user_id=user.id,
@@ -124,6 +136,22 @@ def my_bookings(
     return [booking_to_response(b) for b in bookings]
 
 
+@router.get("/{booking_id}", response_model=BookingResponse)
+def get_booking(booking_id: int, db: DbSession, user: CurrentUser) -> BookingResponse:
+    """Детали одной брони. Доступно владельцу брони или администратору."""
+    booking = db.execute(
+        select(Booking).options(selectinload(Booking.room)).where(Booking.id == booking_id)
+    ).scalar_one_or_none()
+    if booking is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Бронирование не найдено")
+    if booking.user_id != user.id and not bool(getattr(user, "is_admin", False)):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Нет доступа к этому бронированию",
+        )
+    return booking_to_response(booking)
+
+
 @router.delete("/{booking_id}", status_code=status.HTTP_204_NO_CONTENT)
 def cancel_booking(booking_id: int, db: DbSession, user: CurrentUser) -> None:
     """Отменить своё бронирование. Только владелец, только будущие брони."""
@@ -135,10 +163,21 @@ def cancel_booking(booking_id: int, db: DbSession, user: CurrentUser) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Можно отменить только своё бронирование",
         )
-    if booking.end_time < datetime.now(timezone.utc):
+    now = datetime.now(timezone.utc)
+    booking_end = _ensure_utc(booking.end_time)
+    booking_start = _ensure_utc(booking.start_time)
+    if booking_end < now:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Нельзя отменить прошедшее бронирование",
+        )
+    if (booking_start - now).total_seconds() < CANCEL_DEADLINE_MINUTES * 60:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Отмена недоступна менее чем за "
+                f"{CANCEL_DEADLINE_MINUTES} минут до начала бронирования"
+            ),
         )
     db.delete(booking)
     db.commit()

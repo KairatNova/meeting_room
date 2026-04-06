@@ -130,3 +130,100 @@ def test_create_booking_returns_400_when_duration_more_than_six_hours():
     assert "максимальная длительность" in response.json()["detail"].lower()
     db.close()
 
+
+def test_create_booking_returns_409_when_15_minute_buffer_is_violated():
+    db = _make_session()
+    user, room = _seed_user_and_room(db)
+    token = create_access_token(user.id)
+    client = _make_client_with_session(db)
+
+    existing_start = datetime.now(timezone.utc) + timedelta(days=1, hours=1)
+    existing_end = existing_start + timedelta(hours=1)
+    _seed_booking(db, user_id=user.id, room_id=room.id, start=existing_start, end=existing_end)
+
+    # Начало ровно через 10 минут после окончания существующей брони -> конфликт по буферу 15 минут.
+    response = client.post(
+        "/api/bookings",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "room_id": room.id,
+            "start_time": (existing_end + timedelta(minutes=10)).isoformat(),
+            "end_time": (existing_end + timedelta(minutes=70)).isoformat(),
+        },
+    )
+
+    assert response.status_code == 409
+    assert "буфер" in response.json()["detail"].lower()
+    db.close()
+
+
+def test_cancel_booking_returns_400_if_less_than_30_minutes_before_start():
+    db = _make_session()
+    user, room = _seed_user_and_room(db)
+    token = create_access_token(user.id)
+    client = _make_client_with_session(db)
+
+    start = datetime.now(timezone.utc) + timedelta(minutes=20)
+    end = start + timedelta(hours=1)
+    booking = _seed_booking(db, user_id=user.id, room_id=room.id, start=start, end=end)
+
+    response = client.delete(
+        f"/api/bookings/{booking.id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 400
+    assert "за 30 минут" in response.json()["detail"].lower()
+    db.close()
+
+
+def test_get_booking_returns_booking_for_owner():
+    db = _make_session()
+    user, room = _seed_user_and_room(db)
+    token = create_access_token(user.id)
+    client = _make_client_with_session(db)
+
+    start = datetime.now(timezone.utc) + timedelta(days=1)
+    end = start + timedelta(hours=1)
+    booking = _seed_booking(db, user_id=user.id, room_id=room.id, start=start, end=end)
+
+    response = client.get(
+        f"/api/bookings/{booking.id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["id"] == booking.id
+    db.close()
+
+
+def test_get_booking_returns_403_for_non_owner_non_admin():
+    db = _make_session()
+    owner, room = _seed_user_and_room(db)
+    other_user = User(
+        email="another@example.com",
+        hashed_password="hashed",
+        full_name="Another User",
+        display_name="Another",
+        is_admin=False,
+        is_verified=True,
+    )
+    db.add(other_user)
+    db.commit()
+    db.refresh(other_user)
+
+    token = create_access_token(other_user.id)
+    client = _make_client_with_session(db)
+
+    start = datetime.now(timezone.utc) + timedelta(days=1)
+    end = start + timedelta(hours=1)
+    booking = _seed_booking(db, user_id=owner.id, room_id=room.id, start=start, end=end)
+
+    response = client.get(
+        f"/api/bookings/{booking.id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 403
+    db.close()
+

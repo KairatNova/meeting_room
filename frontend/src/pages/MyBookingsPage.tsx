@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { bookingsApi } from "../api/bookings";
+import { EmptyStateCard } from "../components/EmptyStateCard";
 import type { Booking } from "../types/api";
 import { useI18n } from "../i18n/I18nContext";
 import { ProfileBookingsNav } from "../components/ProfileBookingsNav";
+import { SkeletonBlocks } from "../components/SkeletonBlocks";
 
 /**
  * Мои бронирования: список и отмена. Заглушка до реализации API.
@@ -80,7 +82,7 @@ export function MyBookingsPage() {
     <div>
       <ProfileBookingsNav active="bookings" />
       {loading ? (
-        <p className="text-gray-500">{t("common", "loading")}</p>
+        <SkeletonBlocks count={2} className="h-24" />
       ) : (
         <>
       <h1 className="text-2xl font-semibold mb-4">{t("bookings", "title")}</h1>
@@ -146,7 +148,7 @@ export function MyBookingsPage() {
       </section>
 
       {filteredBookings.length === 0 ? (
-        <p className="text-gray-500">{t("bookings", "empty")}</p>
+        <EmptyStateCard title={t("bookings", "empty")} actionLabel={t("home", "openRooms")} actionTo="/" />
       ) : (
         <ul className="space-y-3">
           {filteredBookings.map((b) => {
@@ -170,6 +172,9 @@ export function MyBookingsPage() {
                 </p>
                 <Link to={`/rooms/${b.room_id}`} className="text-indigo-600 hover:underline text-sm inline-block mt-1">
                   {t("bookings", "goToRoom")}
+                </Link>
+                <Link to={`/my-bookings/${b.id}`} className="text-indigo-600 hover:underline text-sm inline-block mt-1 ml-3">
+                  Открыть бронь
                 </Link>
               </div>
               {isPast ? (
