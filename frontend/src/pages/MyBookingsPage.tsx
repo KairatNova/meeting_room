@@ -4,7 +4,6 @@ import { bookingsApi } from "../api/bookings";
 import { EmptyStateCard } from "../components/EmptyStateCard";
 import type { Booking } from "../types/api";
 import { useI18n } from "../i18n/I18nContext";
-import { ProfileBookingsNav } from "../components/ProfileBookingsNav";
 import { SkeletonBlocks } from "../components/SkeletonBlocks";
 
 /**
@@ -80,7 +79,6 @@ export function MyBookingsPage() {
 
   return (
     <div>
-      <ProfileBookingsNav active="bookings" />
       {loading ? (
         <SkeletonBlocks count={2} className="h-24" />
       ) : (

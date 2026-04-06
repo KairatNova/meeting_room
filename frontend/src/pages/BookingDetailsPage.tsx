@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { bookingsApi } from "../api/bookings";
 import { ApiError } from "../api/client";
 import { EmptyStateCard } from "../components/EmptyStateCard";
-import { ProfileBookingsNav } from "../components/ProfileBookingsNav";
 import { SkeletonBlocks } from "../components/SkeletonBlocks";
 import type { Booking } from "../types/api";
 
@@ -60,7 +59,6 @@ export function BookingDetailsPage() {
 
   return (
     <div className="space-y-4">
-      <ProfileBookingsNav active="bookings" />
       {loading ? (
         <SkeletonBlocks count={2} className="h-24" />
       ) : error || !booking ? (

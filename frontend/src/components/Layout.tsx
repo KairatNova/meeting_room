@@ -77,7 +77,7 @@ export function Layout({ children }: LayoutProps) {
                   </button>
                   {dropdownOpen && (
                     <div
-                      className="absolute right-0 top-full mt-1 py-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 text-gray-800 z-50"
+                      className="absolute left-0 sm:left-auto sm:right-0 top-full mt-1 py-1 w-56 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 text-gray-800 z-50"
                       role="menu"
                     >
                       <Link

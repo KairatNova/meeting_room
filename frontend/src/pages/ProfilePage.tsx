@@ -3,7 +3,6 @@ import { profileApi } from "../api/profile";
 import type { User, UserProfileUpdate } from "../types/api";
 import { useI18n } from "../i18n/I18nContext";
 import { ApiError } from "../api/client";
-import { ProfileBookingsNav } from "../components/ProfileBookingsNav";
 import { EmptyStateCard } from "../components/EmptyStateCard";
 import { SkeletonBlocks } from "../components/SkeletonBlocks";
 
@@ -61,7 +60,6 @@ export function ProfilePage() {
   if (loading) {
     return (
       <div className="max-w-xl">
-        <ProfileBookingsNav active="profile" />
         <SkeletonBlocks count={2} className="h-24" />
       </div>
     );
@@ -70,7 +68,6 @@ export function ProfilePage() {
   if (!user) {
     return (
       <div className="max-w-xl">
-        <ProfileBookingsNav active="profile" />
         <EmptyStateCard title={t("common", "userNotFound")} />
       </div>
     );
@@ -78,7 +75,6 @@ export function ProfilePage() {
 
   return (
     <div className="max-w-xl">
-      <ProfileBookingsNav active="profile" />
       <h1 className="text-2xl font-semibold mb-4">{t("profile", "title")}</h1>
       <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
         <p className="text-sm text-gray-600 mb-1">Email</p>
